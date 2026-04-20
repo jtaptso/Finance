@@ -1,3 +1,7 @@
+using FinanceTracker.Application;
+using FinanceTracker.Infrastructure;
+using FinanceTracker.Infrastructure.Persistence;
+using FinanceTracker.Infrastructure.Persistence.SeedData;
 using FinanceTracker.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,7 +10,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
 var app = builder.Build();
+
+// Seed data in development
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    context.Database.EnsureCreated();
+    DefaultCategoriesSeeder.Seed(context);
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
