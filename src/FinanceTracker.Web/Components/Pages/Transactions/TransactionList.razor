@@ -201,31 +201,39 @@
 
     private async Task DeleteTransactionAsync(TransactionDto tx)
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm",
-            $"Delete transaction '{tx.Description}' ({tx.Amount.ToString("C", EurCulture)})?");
-
-        if (confirmed)
+        try
         {
-            var result = await TransactionService.DeleteAsync(tx.Id, _cts.Token);
-            if (result.Succeeded)
+            var confirmed = await JS.InvokeAsync<bool>("confirm",
+                $"Delete transaction '{tx.Description}' ({tx.Amount.ToString("C", EurCulture)})?");
+
+            if (confirmed)
             {
-                Snackbar.Add("Transaction deleted.", Severity.Success);
-                await LoadTransactionsAsync();
-            }
-            else
-            {
-                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+                var result = await TransactionService.DeleteAsync(tx.Id, _cts.Token);
+                if (result.Succeeded)
+                {
+                    Snackbar.Add("Transaction deleted.", Severity.Success);
+                    await LoadTransactionsAsync();
+                }
+                else
+                {
+                    Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+                }
             }
         }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { }
     }
 
     private async Task OpenImportDialog()
     {
-        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
-        var dialog = await DialogService.ShowAsync<ImportDialog>("Import Excel", options);
-        var result = await dialog.Result;
-        if (result is { Canceled: false })
-            await LoadTransactionsAsync();
+        try
+        {
+            var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+            var dialog = await DialogService.ShowAsync<ImportDialog>("Import Excel", options);
+            var result = await dialog.Result;
+            if (result is { Canceled: false })
+                await LoadTransactionsAsync();
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { }
     }
 
     public void Dispose()

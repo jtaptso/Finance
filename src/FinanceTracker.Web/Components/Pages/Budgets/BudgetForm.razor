@@ -1,6 +1,7 @@
 @page "/budgets/new"
 @page "/budgets/{Id:guid}/edit"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 @using FinanceTracker.Domain.Enums
 @inject IBudgetService BudgetService
 @inject ICategoryService CategoryService
@@ -83,6 +84,11 @@
 
     private BudgetFormModel _model = new();
 
+    private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
+
+    protected override bool ShouldRender() => !_disposed;
+
     protected override async Task OnInitializedAsync()
     {
         _breadcrumbs =
@@ -91,34 +97,37 @@
             new(IsEdit ? "Edit" : "New", null, disabled: true)
         ];
 
-        _categories = await CategoryService.GetAllAsync();
-
-        if (IsEdit)
+        try
         {
-            var budget = await BudgetService.GetByIdAsync(Id!.Value);
-            if (budget is not null)
+            _categories = await CategoryService.GetAllAsync(_cts.Token);
+
+            if (IsEdit)
             {
-                _model = new BudgetFormModel
+                var budget = await BudgetService.GetByIdAsync(Id!.Value, _cts.Token);
+                if (budget is not null)
                 {
-                    CategoryId = budget.CategoryId,
-                    Amount = budget.Amount,
-                    Period = budget.Period
-                };
-                _startDateValue = budget.StartDate.ToDateTime(TimeOnly.MinValue);
-                _endDateValue = budget.EndDate?.ToDateTime(TimeOnly.MinValue);
+                    _model = new BudgetFormModel
+                    {
+                        CategoryId = budget.CategoryId,
+                        Amount = budget.Amount,
+                        Period = budget.Period
+                    };
+                    _startDateValue = budget.StartDate.ToDateTime(TimeOnly.MinValue);
+                    _endDateValue = budget.EndDate?.ToDateTime(TimeOnly.MinValue);
+                }
+                else
+                {
+                    Nav.NavigateTo("/budgets");
+                    return;
+                }
             }
-            else
+            else if (_categories.Count > 0)
             {
-                Nav.NavigateTo("/budgets");
-                return;
+                _model.CategoryId = _categories.FirstOrDefault(c => c.Type == CategoryType.Expense)?.Id ?? Guid.Empty;
             }
         }
-        else if (_categories.Count > 0)
-        {
-            _model.CategoryId = _categories.FirstOrDefault(c => c.Type == CategoryType.Expense)?.Id ?? Guid.Empty;
-        }
-
-        _loading = false;
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
+        finally { if (!_disposed) _loading = false; }
     }
 
     private async Task SubmitAsync()
@@ -136,30 +145,41 @@
             ? DateOnly.FromDateTime(_endDateValue.Value)
             : (DateOnly?)null;
 
-        if (IsEdit)
+        try
         {
-            var result = await BudgetService.UpdateAsync(new UpdateBudgetCommand(
-                Id!.Value, _model.Amount, _model.Period, startDate, endDate));
-
-            if (result.Succeeded)
+            if (IsEdit)
             {
-                Snackbar.Add("Budget updated.", Severity.Success);
-                Nav.NavigateTo("/budgets");
+                var result = await BudgetService.UpdateAsync(new UpdateBudgetCommand(
+                    Id!.Value, _model.Amount, _model.Period, startDate, endDate), _cts.Token);
+
+                if (result.Succeeded)
+                {
+                    Snackbar.Add("Budget updated.", Severity.Success);
+                    Nav.NavigateTo("/budgets");
+                }
+                else
+                {
+                    _errorMessage = string.Join(", ", result.Errors);
+                    _saving = false;
+                }
             }
             else
             {
-                _errorMessage = string.Join(", ", result.Errors);
-                _saving = false;
+                await BudgetService.CreateAsync(new CreateBudgetCommand(
+                    _model.CategoryId, _model.Amount, _model.Period, startDate, endDate), _cts.Token);
+
+                Snackbar.Add("Budget created.", Severity.Success);
+                Nav.NavigateTo("/budgets");
             }
         }
-        else
-        {
-            await BudgetService.CreateAsync(new CreateBudgetCommand(
-                _model.CategoryId, _model.Amount, _model.Period, startDate, endDate));
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { _saving = false; }
+    }
 
-            Snackbar.Add("Budget created.", Severity.Success);
-            Nav.NavigateTo("/budgets");
-        }
+    public void Dispose()
+    {
+        _disposed = true;
+        _cts.Cancel();
+        _cts.Dispose();
     }
 
     private class BudgetFormModel

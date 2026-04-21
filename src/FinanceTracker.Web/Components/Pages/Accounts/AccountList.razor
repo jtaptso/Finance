@@ -1,5 +1,6 @@
 @page "/accounts"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 @using FinanceTracker.Application.Accounts.DTOs
 @inject IAccountService AccountService
 @inject ISnackbar Snackbar
@@ -76,27 +77,47 @@
     private bool _loading = true;
     private IReadOnlyList<AccountDto> _accounts = [];
 
+    private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
+
+    protected override bool ShouldRender() => !_disposed;
+
     protected override async Task OnInitializedAsync()
     {
-        _accounts = await AccountService.GetAllAsync();
-        _loading = false;
+        try
+        {
+            _accounts = await AccountService.GetAllAsync(_cts.Token);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
+        finally { if (!_disposed) _loading = false; }
     }
 
     private async Task DeleteAsync(AccountDto acc)
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm",
-            $"Delete account '{acc.Name}'? This cannot be undone.");
-
-        if (confirmed)
+        try
         {
-            var result = await AccountService.DeleteAsync(acc.Id);
-            if (result.Succeeded)
+            var confirmed = await JS.InvokeAsync<bool>("confirm",
+                $"Delete account '{acc.Name}'? This cannot be undone.");
+
+            if (confirmed)
             {
-                Snackbar.Add("Account deleted.", Severity.Success);
-                _accounts = await AccountService.GetAllAsync();
+                var result = await AccountService.DeleteAsync(acc.Id, _cts.Token);
+                if (result.Succeeded)
+                {
+                    Snackbar.Add("Account deleted.", Severity.Success);
+                    if (!_disposed) _accounts = await AccountService.GetAllAsync(_cts.Token);
+                }
+                else
+                    Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
             }
-            else
-                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
         }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }

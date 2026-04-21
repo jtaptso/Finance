@@ -1,5 +1,6 @@
 @page "/categories"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 @using FinanceTracker.Application.Categories.DTOs
 @inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
@@ -65,28 +66,48 @@
     private bool _loading = true;
     private IReadOnlyList<CategoryDto> _categories = [];
 
+    private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
+
+    protected override bool ShouldRender() => !_disposed;
+
     protected override async Task OnInitializedAsync()
     {
-        _categories = await CategoryService.GetAllAsync();
-        _loading = false;
+        try
+        {
+            _categories = await CategoryService.GetAllAsync(_cts.Token);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
+        finally { if (!_disposed) _loading = false; }
     }
 
     private async Task DeleteAsync(CategoryDto cat)
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete category '{cat.Name}'?");
-
-        if (confirmed)
+        try
         {
-            var result = await CategoryService.DeleteAsync(cat.Id);
-            if (result.Succeeded)
+            var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete category '{cat.Name}'?");
+
+            if (confirmed)
             {
-                Snackbar.Add("Category deleted.", Severity.Success);
-                _categories = await CategoryService.GetAllAsync();
-            }
-            else
-            {
-                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+                var result = await CategoryService.DeleteAsync(cat.Id, _cts.Token);
+                if (result.Succeeded)
+                {
+                    Snackbar.Add("Category deleted.", Severity.Success);
+                    if (!_disposed) _categories = await CategoryService.GetAllAsync(_cts.Token);
+                }
+                else
+                {
+                    Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+                }
             }
         }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }

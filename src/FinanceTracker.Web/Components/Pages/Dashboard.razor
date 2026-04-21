@@ -1,5 +1,6 @@
 @page "/"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 @inject IDashboardService DashboardService
 @inject IBudgetService BudgetService
 @inject ITransactionService TransactionService
@@ -217,29 +218,50 @@
     private IReadOnlyList<BudgetVsActualDto>? _budgets;
     private IReadOnlyList<TransactionDto>? _transactions;
 
-    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+    private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
+
+    protected override bool ShouldRender() => !_disposed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { }
+    }
 
     private async Task LoadDataAsync()
     {
         var year = _selectedDate.Year;
         var month = _selectedDate.Month;
 
-        _overview = await DashboardService.GetMonthlyOverviewAsync(year, month);
-        _categoryBreakdown = await DashboardService.GetCategoryBreakdownAsync(year, month);
-        _cashFlow = await DashboardService.GetCashFlowTrendAsync(6);
-        _budgets = await BudgetService.GetVsActualAsync(year, month);
-        _transactions = await TransactionService.GetByMonthAsync(year, month);
+        _overview = await DashboardService.GetMonthlyOverviewAsync(year, month, _cts.Token);
+        _categoryBreakdown = await DashboardService.GetCategoryBreakdownAsync(year, month, _cts.Token);
+        _cashFlow = await DashboardService.GetCashFlowTrendAsync(6, _cts.Token);
+        _budgets = await BudgetService.GetVsActualAsync(year, month, _cts.Token);
+        _transactions = await TransactionService.GetByMonthAsync(year, month, _cts.Token);
     }
 
     private async Task PrevMonth()
     {
         _selectedDate = _selectedDate.AddMonths(-1);
-        await LoadDataAsync();
+        try { await LoadDataAsync(); }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { }
     }
 
     private async Task NextMonth()
     {
         _selectedDate = _selectedDate.AddMonths(1);
-        await LoadDataAsync();
+        try { await LoadDataAsync(); }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }

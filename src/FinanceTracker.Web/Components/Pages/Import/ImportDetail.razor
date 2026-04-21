@@ -1,5 +1,6 @@
 @page "/import/{Id:guid}"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 @inject IImportService ImportService
 @inject NavigationManager Nav
 
@@ -80,6 +81,11 @@ else
     private IReadOnlyList<TransactionDto> _transactions = [];
     private List<BreadcrumbItem> _breadcrumbs = [];
 
+    private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
+
+    protected override bool ShouldRender() => !_disposed;
+
     protected override async Task OnInitializedAsync()
     {
         _breadcrumbs =
@@ -88,12 +94,23 @@ else
             new("Detail", null, disabled: true)
         ];
 
-        var (import, transactions) = await ImportService.GetDetailAsync(Id);
-        _import = import;
-        _transactions = transactions;
-        _loading = false;
+        try
+        {
+            var (import, transactions) = await ImportService.GetDetailAsync(Id, _cts.Token);
+            _import = import;
+            _transactions = transactions;
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
+        finally { if (!_disposed) _loading = false; }
     }
 
     private static string AmountStyle(decimal amount) =>
         $"text-align:right; color:{(amount >= 0 ? "green" : "red")}";
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _cts.Cancel();
+        _cts.Dispose();
+    }
 }

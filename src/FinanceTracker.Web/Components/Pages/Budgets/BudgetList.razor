@@ -1,5 +1,6 @@
 @page "/budgets"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 @inject IBudgetService BudgetService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
@@ -80,28 +81,48 @@
     private IReadOnlyList<BudgetDto> _budgets = [];
     private IReadOnlyList<BudgetVsActualDto> _budgetVsActual = [];
 
+    private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
+
+    protected override bool ShouldRender() => !_disposed;
+
     protected override async Task OnInitializedAsync()
     {
-        var now = DateTime.Now;
-        _budgets = await BudgetService.GetAllAsync();
-        _budgetVsActual = await BudgetService.GetVsActualAsync(now.Year, now.Month);
-        _loading = false;
+        try
+        {
+            var now = DateTime.Now;
+            _budgets = await BudgetService.GetAllAsync(_cts.Token);
+            _budgetVsActual = await BudgetService.GetVsActualAsync(now.Year, now.Month, _cts.Token);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
+        finally { if (!_disposed) _loading = false; }
     }
 
     private async Task DeleteAsync(BudgetDto budget)
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete budget for '{budget.CategoryName}'?");
-
-        if (confirmed)
+        try
         {
-            var result = await BudgetService.DeleteAsync(budget.Id);
-            if (result.Succeeded)
+            var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete budget for '{budget.CategoryName}'?");
+
+            if (confirmed)
             {
-                Snackbar.Add("Budget deleted.", Severity.Success);
-                _budgets = await BudgetService.GetAllAsync();
+                var result = await BudgetService.DeleteAsync(budget.Id, _cts.Token);
+                if (result.Succeeded)
+                {
+                    Snackbar.Add("Budget deleted.", Severity.Success);
+                    if (!_disposed) _budgets = await BudgetService.GetAllAsync(_cts.Token);
+                }
+                else
+                    Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
             }
-            else
-                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
         }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }

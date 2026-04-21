@@ -1,5 +1,6 @@
 @page "/import"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 @inject IImportService ImportService
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
@@ -55,10 +56,19 @@
     private bool _loading = true;
     private IReadOnlyList<ImportHistoryDto> _imports = [];
 
+    private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
+
+    protected override bool ShouldRender() => !_disposed;
+
     protected override async Task OnInitializedAsync()
     {
-        _imports = await ImportService.GetHistoryAsync();
-        _loading = false;
+        try
+        {
+            _imports = await ImportService.GetHistoryAsync(_cts.Token);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
+        finally { if (!_disposed) _loading = false; }
     }
 
     private static Color StatusColor(FinanceTracker.Domain.Enums.ImportStatus status) => status switch
@@ -71,19 +81,30 @@
 
     private async Task UndoImportAsync(ImportHistoryDto import)
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm",
-            $"This will delete all {import.ImportedRows} transactions from '{import.FileName}'. Continue?");
-
-        if (confirmed)
+        try
         {
-            var result = await ImportService.DeleteAsync(import.Id);
-            if (result.Succeeded)
+            var confirmed = await JS.InvokeAsync<bool>("confirm",
+                $"This will delete all {import.ImportedRows} transactions from '{import.FileName}'. Continue?");
+
+            if (confirmed)
             {
-                Snackbar.Add("Import undone successfully.", Severity.Success);
-                _imports = await ImportService.GetHistoryAsync();
+                var result = await ImportService.DeleteAsync(import.Id, _cts.Token);
+                if (result.Succeeded)
+                {
+                    Snackbar.Add("Import undone successfully.", Severity.Success);
+                    if (!_disposed) _imports = await ImportService.GetHistoryAsync(_cts.Token);
+                }
+                else
+                    Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
             }
-            else
-                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
         }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }
