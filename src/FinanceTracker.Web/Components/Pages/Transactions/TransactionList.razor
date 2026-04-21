@@ -143,6 +143,8 @@
     private readonly CancellationTokenSource _cts = new();
     private bool _disposed;
 
+    protected override bool ShouldRender() => !_disposed;
+
     private IEnumerable<TransactionDto> FilteredTransactions => _transactions
         .Where(t => string.IsNullOrWhiteSpace(_searchText) ||
                     t.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
