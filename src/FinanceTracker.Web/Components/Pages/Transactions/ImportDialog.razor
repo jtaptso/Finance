@@ -162,11 +162,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var accTask = Mediator.Send(new GetAllAccountsQuery());
-        var catTask = Mediator.Send(new GetAllCategoriesQuery());
-        await Task.WhenAll(accTask, catTask);
-        _accounts = await accTask;
-        _categories = await catTask;
+        _accounts = await Mediator.Send(new GetAllAccountsQuery());
+        _categories = await Mediator.Send(new GetAllCategoriesQuery());
         if (_accounts.Count > 0)
             _selectedAccountId = _accounts[0].Id;
     }

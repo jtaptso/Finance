@@ -121,12 +121,8 @@
             new(IsEdit ? "Edit" : "New", null, disabled: true)
         ];
 
-        var catTask = Mediator.Send(new GetAllCategoriesQuery());
-        var accTask = Mediator.Send(new GetAllAccountsQuery());
-
-        await Task.WhenAll(catTask, accTask);
-        _categories = await catTask;
-        _accounts = await accTask;
+        _categories = await Mediator.Send(new GetAllCategoriesQuery());
+        _accounts = await Mediator.Send(new GetAllAccountsQuery());
 
         if (IsEdit)
         {

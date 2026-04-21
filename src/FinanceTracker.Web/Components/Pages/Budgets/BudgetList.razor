@@ -87,11 +87,8 @@
     protected override async Task OnInitializedAsync()
     {
         var now = DateTime.Now;
-        var budgetTask = Mediator.Send(new GetAllBudgetsQuery());
-        var vaTask = Mediator.Send(new GetBudgetVsActualQuery(now.Year, now.Month));
-        await Task.WhenAll(budgetTask, vaTask);
-        _budgets = await budgetTask;
-        _budgetVsActual = await vaTask;
+        _budgets = await Mediator.Send(new GetAllBudgetsQuery());
+        _budgetVsActual = await Mediator.Send(new GetBudgetVsActualQuery(now.Year, now.Month));
         _loading = false;
     }
 
