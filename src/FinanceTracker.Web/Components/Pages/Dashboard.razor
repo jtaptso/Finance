@@ -230,19 +230,11 @@
         var year = _selectedDate.Year;
         var month = _selectedDate.Month;
 
-        var overviewTask = Mediator.Send(new GetMonthlyOverviewQuery(year, month));
-        var breakdownTask = Mediator.Send(new GetCategoryBreakdownQuery(year, month));
-        var cashFlowTask = Mediator.Send(new GetCashFlowTrendQuery(6));
-        var budgetTask = Mediator.Send(new GetBudgetVsActualQuery(year, month));
-        var txTask = Mediator.Send(new GetTransactionsByMonthQuery(year, month));
-
-        await Task.WhenAll(overviewTask, breakdownTask, cashFlowTask, budgetTask, txTask);
-
-        _overview = await overviewTask;
-        _categoryBreakdown = await breakdownTask;
-        _cashFlow = await cashFlowTask;
-        _budgets = await budgetTask;
-        _transactions = await txTask;
+        _overview = await Mediator.Send(new GetMonthlyOverviewQuery(year, month));
+        _categoryBreakdown = await Mediator.Send(new GetCategoryBreakdownQuery(year, month));
+        _cashFlow = await Mediator.Send(new GetCashFlowTrendQuery(6));
+        _budgets = await Mediator.Send(new GetBudgetVsActualQuery(year, month));
+        _transactions = await Mediator.Send(new GetTransactionsByMonthQuery(year, month));
     }
 
     private async Task PrevMonth()
