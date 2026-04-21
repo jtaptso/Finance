@@ -13,7 +13,7 @@ public static class DependencyInjection
 
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
         services.AddValidatorsFromAssembly(assembly);
-        services.AddAutoMapper(cfg => cfg.AddMaps(assembly));
+        services.AddAutoMapper(assembly);
 
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
