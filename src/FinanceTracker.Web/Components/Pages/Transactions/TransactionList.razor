@@ -141,6 +141,7 @@
     private string _filterType = string.Empty;
 
     private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
 
     private IEnumerable<TransactionDto> FilteredTransactions => _transactions
         .Where(t => string.IsNullOrWhiteSpace(_searchText) ||
@@ -158,10 +159,16 @@
         try
         {
             _categories = await CategoryService.GetAllAsync(_cts.Token);
+
+            if (_disposed) return;
+
             _transactions = await TransactionService.GetByMonthAsync(_selectedDate.Year, _selectedDate.Month, _cts.Token);
         }
         catch (OperationCanceledException) { }
-        finally { _loading = false; }
+        {
+            if (!_disposed)
+                _loading = false;
+        }
     }
 
     private async Task LoadTransactionsAsync()
@@ -169,10 +176,21 @@
         _loading = true;
         try
         {
-            _transactions = await TransactionService.GetByMonthAsync(_selectedDate.Year, _selectedDate.Month, _cts.Token);
+            var data = await TransactionService.GetByMonthAsync(
+            _selectedDate.Year,
+            _selectedDate.Month,
+            _cts.Token);
+
+            if (_disposed) return;
+            
+            _transactions = data;
         }
         catch (OperationCanceledException) { }
-        finally { _loading = false; }
+        finally
+        {
+            if (!_disposed)
+                _loading = false;
+        }
     }
 
     private async Task PrevMonth()
@@ -197,6 +215,7 @@
         if (confirmed)
         {
             var result = await TransactionService.DeleteAsync(tx.Id, _cts.Token);
+            if (_disposed) return;
             if (result.Succeeded)
             {
                 Snackbar.Add("Transaction deleted.", Severity.Success);
@@ -218,5 +237,10 @@
             await LoadTransactionsAsync();
     }
 
-    public void Dispose() => _cts.Cancel();
+    public void Dispose()
+    {
+        _disposed = true;
+        _cts.Cancel();
+        _cts.Dispose();
+    }
 }
