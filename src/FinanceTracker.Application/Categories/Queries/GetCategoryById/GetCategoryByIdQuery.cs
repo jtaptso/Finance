@@ -1,4 +1,4 @@
-using AutoMapper;
+using FinanceTracker.Application.Common.Mappings;
 using FinanceTracker.Application.Categories.DTOs;
 using FinanceTracker.Domain.Interfaces;
 using MediatR;
@@ -10,17 +10,11 @@ public record GetCategoryByIdQuery(Guid Id) : IRequest<CategoryDto?>;
 public class GetCategoryByIdHandler : IRequestHandler<GetCategoryByIdQuery, CategoryDto?>
 {
     private readonly IUnitOfWork _uow;
-    private readonly IMapper _mapper;
-
-    public GetCategoryByIdHandler(IUnitOfWork uow, IMapper mapper)
-    {
-        _uow = uow;
-        _mapper = mapper;
-    }
+    public GetCategoryByIdHandler(IUnitOfWork uow) => _uow = uow;
 
     public async Task<CategoryDto?> Handle(GetCategoryByIdQuery request, CancellationToken cancellationToken)
     {
         var category = await _uow.Categories.GetByIdAsync(request.Id, cancellationToken);
-        return category is null ? null : _mapper.Map<CategoryDto>(category);
+        return category?.ToDto();
     }
 }

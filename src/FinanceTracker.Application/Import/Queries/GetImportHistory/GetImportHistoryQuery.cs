@@ -1,4 +1,4 @@
-using AutoMapper;
+using FinanceTracker.Application.Common.Mappings;
 using FinanceTracker.Application.Import.DTOs;
 using FinanceTracker.Domain.Interfaces;
 using MediatR;
@@ -10,17 +10,11 @@ public record GetImportHistoryQuery : IRequest<IReadOnlyList<ImportHistoryDto>>;
 public class GetImportHistoryHandler : IRequestHandler<GetImportHistoryQuery, IReadOnlyList<ImportHistoryDto>>
 {
     private readonly IUnitOfWork _uow;
-    private readonly IMapper _mapper;
-
-    public GetImportHistoryHandler(IUnitOfWork uow, IMapper mapper)
-    {
-        _uow = uow;
-        _mapper = mapper;
-    }
+    public GetImportHistoryHandler(IUnitOfWork uow) => _uow = uow;
 
     public async Task<IReadOnlyList<ImportHistoryDto>> Handle(GetImportHistoryQuery request, CancellationToken cancellationToken)
     {
         var imports = await _uow.ImportHistories.GetAllAsync(cancellationToken);
-        return _mapper.Map<IReadOnlyList<ImportHistoryDto>>(imports);
+        return imports.Select(i => i.ToDto()).ToList();
     }
 }

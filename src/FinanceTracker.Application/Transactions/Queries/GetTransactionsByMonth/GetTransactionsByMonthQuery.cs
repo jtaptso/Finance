@@ -1,4 +1,4 @@
-using AutoMapper;
+using FinanceTracker.Application.Common.Mappings;
 using FinanceTracker.Application.Transactions.DTOs;
 using FinanceTracker.Domain.Interfaces;
 using MediatR;
@@ -10,17 +10,12 @@ public record GetTransactionsByMonthQuery(int Year, int Month) : IRequest<IReadO
 public class GetTransactionsByMonthHandler : IRequestHandler<GetTransactionsByMonthQuery, IReadOnlyList<TransactionDto>>
 {
     private readonly IUnitOfWork _uow;
-    private readonly IMapper _mapper;
 
-    public GetTransactionsByMonthHandler(IUnitOfWork uow, IMapper mapper)
-    {
-        _uow = uow;
-        _mapper = mapper;
-    }
+    public GetTransactionsByMonthHandler(IUnitOfWork uow) => _uow = uow;
 
     public async Task<IReadOnlyList<TransactionDto>> Handle(GetTransactionsByMonthQuery request, CancellationToken cancellationToken)
     {
         var transactions = await _uow.Transactions.GetByMonthAsync(request.Year, request.Month, cancellationToken);
-        return _mapper.Map<IReadOnlyList<TransactionDto>>(transactions);
+        return transactions.Select(t => t.ToDto()).ToList();
     }
 }

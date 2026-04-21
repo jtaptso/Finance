@@ -1,4 +1,4 @@
-using AutoMapper;
+using FinanceTracker.Application.Common.Mappings;
 using FinanceTracker.Application.Budgets.DTOs;
 using FinanceTracker.Domain.Interfaces;
 using MediatR;
@@ -10,17 +10,11 @@ public record GetAllBudgetsQuery : IRequest<IReadOnlyList<BudgetDto>>;
 public class GetAllBudgetsHandler : IRequestHandler<GetAllBudgetsQuery, IReadOnlyList<BudgetDto>>
 {
     private readonly IUnitOfWork _uow;
-    private readonly IMapper _mapper;
-
-    public GetAllBudgetsHandler(IUnitOfWork uow, IMapper mapper)
-    {
-        _uow = uow;
-        _mapper = mapper;
-    }
+    public GetAllBudgetsHandler(IUnitOfWork uow) => _uow = uow;
 
     public async Task<IReadOnlyList<BudgetDto>> Handle(GetAllBudgetsQuery request, CancellationToken cancellationToken)
     {
         var budgets = await _uow.Budgets.GetAllAsync(cancellationToken);
-        return _mapper.Map<IReadOnlyList<BudgetDto>>(budgets);
+        return budgets.Select(b => b.ToDto()).ToList();
     }
 }

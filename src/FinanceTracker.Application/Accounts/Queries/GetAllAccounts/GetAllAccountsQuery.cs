@@ -1,4 +1,4 @@
-using AutoMapper;
+using FinanceTracker.Application.Common.Mappings;
 using FinanceTracker.Application.Accounts.DTOs;
 using FinanceTracker.Domain.Interfaces;
 using MediatR;
@@ -10,17 +10,11 @@ public record GetAllAccountsQuery : IRequest<IReadOnlyList<AccountDto>>;
 public class GetAllAccountsHandler : IRequestHandler<GetAllAccountsQuery, IReadOnlyList<AccountDto>>
 {
     private readonly IUnitOfWork _uow;
-    private readonly IMapper _mapper;
-
-    public GetAllAccountsHandler(IUnitOfWork uow, IMapper mapper)
-    {
-        _uow = uow;
-        _mapper = mapper;
-    }
+    public GetAllAccountsHandler(IUnitOfWork uow) => _uow = uow;
 
     public async Task<IReadOnlyList<AccountDto>> Handle(GetAllAccountsQuery request, CancellationToken cancellationToken)
     {
         var accounts = await _uow.Accounts.GetAllAsync(cancellationToken);
-        return _mapper.Map<IReadOnlyList<AccountDto>>(accounts);
+        return accounts.Select(a => a.ToDto()).ToList();
     }
 }
