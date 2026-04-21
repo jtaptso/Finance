@@ -1,5 +1,6 @@
 @page "/transactions"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 @using FinanceTracker.Application.Transactions.DTOs
 @using FinanceTracker.Application.Transactions.Queries.GetTransactionsByMonth
 @using FinanceTracker.Application.Transactions.Commands.DeleteTransaction
@@ -143,6 +144,8 @@
     private Guid? _filterCategoryId;
     private string _filterType = string.Empty;
 
+    private readonly CancellationTokenSource _cts = new();
+
     private IEnumerable<TransactionDto> FilteredTransactions => _transactions
         .Where(t => string.IsNullOrWhiteSpace(_searchText) ||
                     t.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
@@ -156,16 +159,24 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _categories = await Mediator.Send(new GetAllCategoriesQuery());
-        _transactions = await Mediator.Send(new GetTransactionsByMonthQuery(_selectedDate.Year, _selectedDate.Month));
-        _loading = false;
+        try
+        {
+            _categories = await Mediator.Send(new GetAllCategoriesQuery(), _cts.Token);
+            _transactions = await Mediator.Send(new GetTransactionsByMonthQuery(_selectedDate.Year, _selectedDate.Month), _cts.Token);
+        }
+        catch (OperationCanceledException) { }
+        finally { _loading = false; }
     }
 
     private async Task LoadTransactionsAsync()
     {
         _loading = true;
-        _transactions = await Mediator.Send(new GetTransactionsByMonthQuery(_selectedDate.Year, _selectedDate.Month));
-        _loading = false;
+        try
+        {
+            _transactions = await Mediator.Send(new GetTransactionsByMonthQuery(_selectedDate.Year, _selectedDate.Month), _cts.Token);
+        }
+        catch (OperationCanceledException) { }
+        finally { _loading = false; }
     }
 
     private async Task PrevMonth()
@@ -189,7 +200,7 @@
 
         if (confirmed)
         {
-            var result = await Mediator.Send(new DeleteTransactionCommand(tx.Id));
+            var result = await Mediator.Send(new DeleteTransactionCommand(tx.Id), _cts.Token);
             if (result.Succeeded)
             {
                 Snackbar.Add("Transaction deleted.", Severity.Success);
@@ -210,4 +221,6 @@
         if (result is { Canceled: false })
             await LoadTransactionsAsync();
     }
+
+    public void Dispose() => _cts.Cancel();
 }
