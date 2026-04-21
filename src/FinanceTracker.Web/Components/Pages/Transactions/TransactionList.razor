@@ -161,7 +161,7 @@
             _categories = await CategoryService.GetAllAsync(_cts.Token);
             _transactions = await TransactionService.GetByMonthAsync(_selectedDate.Year, _selectedDate.Month, _cts.Token);
         }
-        catch (OperationCanceledException) { return; }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
         finally
         {
             if (!_disposed) _loading = false;
@@ -176,7 +176,7 @@
         {
             _transactions = await TransactionService.GetByMonthAsync(_selectedDate.Year, _selectedDate.Month, _cts.Token);
         }
-        catch (OperationCanceledException) { return; }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException) { return; }
         finally
         {
             if (!_disposed) _loading = false;
