@@ -1,0 +1,104 @@
+@page "/accounts"
+@rendermode InteractiveServer
+@using FinanceTracker.Application.Accounts.DTOs
+@using FinanceTracker.Application.Accounts.Queries.GetAllAccounts
+@using FinanceTracker.Application.Accounts.Commands.DeleteAccount
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Accounts – Finance Tracker</PageTitle>
+
+<MudGrid AlignItems="Center" Class="mb-3">
+    <MudItem xs="6"><MudText Typo="Typo.h5">Accounts</MudText></MudItem>
+    <MudItem xs="6" Style="text-align:right">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   Href="/accounts/new">Add Account</MudButton>
+    </MudItem>
+</MudGrid>
+
+<MudGrid>
+    @foreach (var acc in _accounts)
+    {
+        <MudItem xs="12" sm="6" lg="4">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@acc.Name</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@acc.BankName</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Href="@($"/accounts/{acc.Id}/edit")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                       OnClick="@(() => DeleteAsync(acc))" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudGrid>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Account Number</MudText>
+                            <MudText>@(acc.AccountNumber ?? "—")</MudText>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Currency</MudText>
+                            <MudText>@acc.Currency</MudText>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Initial Balance</MudText>
+                            <MudText>@acc.InitialBalance.ToString("C", EurCulture)</MudText>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Current Balance</MudText>
+                            <MudText Style="@(acc.CurrentBalance >= 0 ? "color:green;font-weight:bold" : "color:red;font-weight:bold")">
+                                @acc.CurrentBalance.ToString("C", EurCulture)
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudChip T="string" Color="@(acc.IsActive ? Color.Success : Color.Default)" Size="Size.Small">
+                        @(acc.IsActive ? "Active" : "Inactive")
+                    </MudChip>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    }
+    @if (_accounts.Count == 0 && !_loading)
+    {
+        <MudItem xs="12">
+            <MudText Color="Color.Secondary">No accounts found. Add your first account.</MudText>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private static readonly System.Globalization.CultureInfo EurCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+
+    private bool _loading = true;
+    private IReadOnlyList<AccountDto> _accounts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _accounts = await Mediator.Send(new GetAllAccountsQuery());
+        _loading = false;
+    }
+
+    private async Task DeleteAsync(AccountDto acc)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"Delete account '{acc.Name}'? This cannot be undone.");
+
+        if (confirmed)
+        {
+            var result = await Mediator.Send(new DeleteAccountCommand(acc.Id));
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Account deleted.", Severity.Success);
+                _accounts = await Mediator.Send(new GetAllAccountsQuery());
+            }
+            else
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+    }
+}

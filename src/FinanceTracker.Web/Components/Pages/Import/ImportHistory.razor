@@ -1,0 +1,92 @@
+@page "/import"
+@rendermode InteractiveServer
+@using FinanceTracker.Application.Import.DTOs
+@using FinanceTracker.Application.Import.Queries.GetImportHistory
+@using FinanceTracker.Application.Import.Commands.DeleteImport
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Import History – Finance Tracker</PageTitle>
+
+<MudGrid AlignItems="Center" Class="mb-3">
+    <MudItem xs="6"><MudText Typo="Typo.h5">Import History</MudText></MudItem>
+    <MudItem xs="6" Style="text-align:right">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
+                   Href="/transactions">Go to Transactions</MudButton>
+    </MudItem>
+</MudGrid>
+
+<MudPaper Elevation="2">
+    @if (_loading) { <MudProgressLinear Indeterminate Color="Color.Primary" /> }
+    <MudTable Items="_imports" Dense Hover Striped>
+        <HeaderContent>
+            <MudTh>File</MudTh>
+            <MudTh>Month</MudTh>
+            <MudTh>Imported At</MudTh>
+            <MudTh>Total</MudTh>
+            <MudTh>Imported</MudTh>
+            <MudTh>Skipped</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <MudLink Href="@($"/import/{context.Id}")">@context.FileName</MudLink>
+            </MudTd>
+            <MudTd>@context.Month.ToString("MMMM yyyy")</MudTd>
+            <MudTd>@context.ImportedAt.ToString("dd.MM.yyyy HH:mm")</MudTd>
+            <MudTd>@context.TotalRows</MudTd>
+            <MudTd>@context.ImportedRows</MudTd>
+            <MudTd>@context.SkippedRows</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip>
+            </MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Undo" Size="Size.Small" Color="Color.Warning"
+                               Title="Undo Import" OnClick="@(() => UndoImportAsync(context))" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Color="Color.Secondary" Class="pa-4">No imports yet.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private bool _loading = true;
+    private IReadOnlyList<ImportHistoryDto> _imports = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _imports = await Mediator.Send(new GetImportHistoryQuery());
+        _loading = false;
+    }
+
+    private static Color StatusColor(FinanceTracker.Domain.Enums.ImportStatus status) => status switch
+    {
+        FinanceTracker.Domain.Enums.ImportStatus.Completed => Color.Success,
+        FinanceTracker.Domain.Enums.ImportStatus.PartiallyCompleted => Color.Warning,
+        FinanceTracker.Domain.Enums.ImportStatus.Failed => Color.Error,
+        _ => Color.Default
+    };
+
+    private async Task UndoImportAsync(ImportHistoryDto import)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"This will delete all {import.ImportedRows} transactions from '{import.FileName}'. Continue?");
+
+        if (confirmed)
+        {
+            var result = await Mediator.Send(new DeleteImportCommand(import.Id));
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Import undone successfully.", Severity.Success);
+                _imports = await Mediator.Send(new GetImportHistoryQuery());
+            }
+            else
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+    }
+}

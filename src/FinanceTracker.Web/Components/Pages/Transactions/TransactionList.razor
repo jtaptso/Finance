@@ -1,0 +1,216 @@
+@page "/transactions"
+@rendermode InteractiveServer
+@using FinanceTracker.Application.Transactions.DTOs
+@using FinanceTracker.Application.Transactions.Queries.GetTransactionsByMonth
+@using FinanceTracker.Application.Transactions.Commands.DeleteTransaction
+@using FinanceTracker.Application.Categories.DTOs
+@using FinanceTracker.Application.Categories.Queries.GetAllCategories
+@using FinanceTracker.Application.Accounts.DTOs
+@using FinanceTracker.Application.Accounts.Queries.GetAllAccounts
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDialogService DialogService
+
+<PageTitle>Transactions – Finance Tracker</PageTitle>
+
+<MudGrid AlignItems="Center" Class="mb-3">
+    <MudItem xs="12" sm="6">
+        <MudText Typo="Typo.h5">Transactions — @_selectedDate.ToString("MMMM yyyy")</MudText>
+    </MudItem>
+    <MudItem xs="12" sm="6" Style="text-align:right">
+        <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PrevMonth" />
+        <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonth" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
+                   OnClick="OpenImportDialog" Class="ml-2">
+            Import Excel
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   Href="/transactions/new" Class="ml-2">
+            Add
+        </MudButton>
+    </MudItem>
+</MudGrid>
+
+<!-- Filters -->
+<MudPaper Class="pa-3 mb-3" Elevation="1">
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_searchText" Label="Search description" Immediate
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          DebounceInterval="300" OnDebounceIntervalElapsed="ApplyFilter" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudSelect T="Guid?" @bind-Value="_filterCategoryId" Label="Category" Clearable
+                       AnchorOrigin="Origin.BottomLeft">
+                <MudSelectItem T="Guid?" Value="null">All Categories</MudSelectItem>
+                @foreach (var cat in _categories)
+                {
+                    <MudSelectItem T="Guid?" Value="cat.Id">@cat.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudSelect T="string" @bind-Value="_filterType" Label="Type" Clearable
+                       AnchorOrigin="Origin.BottomLeft">
+                <MudSelectItem T="string" Value='""'>All Types</MudSelectItem>
+                <MudSelectItem T="string" Value='"Income"'>Income</MudSelectItem>
+                <MudSelectItem T="string" Value='"Expense"'>Expense</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<!-- Table -->
+<MudPaper Elevation="2">
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate Color="Color.Primary" />
+    }
+    <MudTable Items="FilteredTransactions" Dense Hover Striped Breakpoint="Breakpoint.Sm"
+              FixedHeader FixedFooter Height="600px">
+        <HeaderContent>
+            <MudTh>Date</MudTh>
+            <MudTh>Description</MudTh>
+            <MudTh>Type</MudTh>
+            <MudTh>Category</MudTh>
+            <MudTh Style="text-align:right">Amount</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Date">@context.Date.ToString("dd.MM.yyyy")</MudTd>
+            <MudTd DataLabel="Description">
+                <MudTooltip Text="@context.Description" Placement="Placement.Top">
+                    <span style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block">
+                        @context.Description
+                    </span>
+                </MudTooltip>
+            </MudTd>
+            <MudTd DataLabel="Type">@context.TransactionType</MudTd>
+            <MudTd DataLabel="Category">
+                @if (context.CategoryName is not null)
+                {
+                    <MudChip T="string" Size="Size.Small"
+                             Style="@(!string.IsNullOrEmpty(context.CategoryColor) ? $"background:{context.CategoryColor};color:#fff" : "")">
+                        @context.CategoryName
+                    </MudChip>
+                }
+                else
+                {
+                    <MudText Color="Color.Secondary">—</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Amount" Style="@AmountStyle(context.Amount)">
+                @context.Amount.ToString("C", EurCulture)
+            </MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               Href="@($"/transactions/{context.Id}/edit")" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => DeleteTransactionAsync(context))" />
+            </MudTd>
+        </RowTemplate>
+        <FooterContent>
+            <MudTd colspan="4" Style="font-weight:bold">Total</MudTd>
+            <MudTd Style="@TotalStyle()">
+                @FilteredTransactions.Sum(t => t.Amount).ToString("C", EurCulture)
+            </MudTd>
+            <MudTd />
+        </FooterContent>
+        <NoRecordsContent>
+            <MudText Color="Color.Secondary" Class="pa-4">No transactions found.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private static readonly System.Globalization.CultureInfo EurCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+
+    private static string AmountStyle(decimal amount) =>
+        $"text-align:right; font-weight:600; color:{(amount >= 0 ? "green" : "red")}";
+
+    private string TotalStyle() =>
+        $"text-align:right; font-weight:bold; color:{(FilteredTransactions.Sum(t => t.Amount) >= 0 ? "green" : "red")}";
+
+    private DateOnly _selectedDate = DateOnly.FromDateTime(DateTime.Now);
+    private bool _loading = true;
+    private IReadOnlyList<TransactionDto> _transactions = [];
+    private IReadOnlyList<CategoryDto> _categories = [];
+
+    private string _searchText = string.Empty;
+    private Guid? _filterCategoryId;
+    private string _filterType = string.Empty;
+
+    private IEnumerable<TransactionDto> FilteredTransactions => _transactions
+        .Where(t => string.IsNullOrWhiteSpace(_searchText) ||
+                    t.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+        .Where(t => _filterCategoryId is null || t.CategoryId == _filterCategoryId)
+        .Where(t => _filterType switch
+        {
+            "Income" => t.Amount >= 0,
+            "Expense" => t.Amount < 0,
+            _ => true
+        });
+
+    protected override async Task OnInitializedAsync()
+    {
+        var catTask = Mediator.Send(new GetAllCategoriesQuery());
+        var txTask = Mediator.Send(new GetTransactionsByMonthQuery(_selectedDate.Year, _selectedDate.Month));
+        await Task.WhenAll(catTask, txTask);
+        _categories = await catTask;
+        _transactions = await txTask;
+        _loading = false;
+    }
+
+    private async Task LoadTransactionsAsync()
+    {
+        _loading = true;
+        _transactions = await Mediator.Send(new GetTransactionsByMonthQuery(_selectedDate.Year, _selectedDate.Month));
+        _loading = false;
+    }
+
+    private async Task PrevMonth()
+    {
+        _selectedDate = _selectedDate.AddMonths(-1);
+        await LoadTransactionsAsync();
+    }
+
+    private async Task NextMonth()
+    {
+        _selectedDate = _selectedDate.AddMonths(1);
+        await LoadTransactionsAsync();
+    }
+
+    private void ApplyFilter() => StateHasChanged();
+
+    private async Task DeleteTransactionAsync(TransactionDto tx)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"Delete transaction '{tx.Description}' ({tx.Amount.ToString("C", EurCulture)})?");
+
+        if (confirmed)
+        {
+            var result = await Mediator.Send(new DeleteTransactionCommand(tx.Id));
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Transaction deleted.", Severity.Success);
+                await LoadTransactionsAsync();
+            }
+            else
+            {
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            }
+        }
+    }
+
+    private async Task OpenImportDialog()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<ImportDialog>("Import Excel", options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            await LoadTransactionsAsync();
+    }
+}

@@ -3,12 +3,15 @@ using FinanceTracker.Infrastructure;
 using FinanceTracker.Infrastructure.Persistence;
 using FinanceTracker.Infrastructure.Persistence.SeedData;
 using FinanceTracker.Web.Components;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddMudServices();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

@@ -1,0 +1,259 @@
+@page "/"
+@rendermode InteractiveServer
+@using FinanceTracker.Application.Dashboard.DTOs
+@using FinanceTracker.Application.Dashboard.Queries.GetMonthlyOverview
+@using FinanceTracker.Application.Dashboard.Queries.GetCategoryBreakdown
+@using FinanceTracker.Application.Dashboard.Queries.GetCashFlowTrend
+@using FinanceTracker.Application.Budgets.DTOs
+@using FinanceTracker.Application.Budgets.Queries.GetBudgetVsActual
+@using FinanceTracker.Application.Transactions.DTOs
+@using FinanceTracker.Application.Transactions.Queries.GetTransactionsByMonth
+@inject IMediator Mediator
+
+<PageTitle>Dashboard – Finance Tracker</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Dashboard — @_selectedDate.ToString("MMMM yyyy")</MudText>
+
+<MudGrid Spacing="3">
+    <!-- Month Picker -->
+    <MudItem xs="12">
+        <MudPaper Class="pa-3" Elevation="1">
+            <MudGrid AlignItems="Center">
+                <MudItem>
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PrevMonth" />
+                </MudItem>
+                <MudItem>
+                    <MudText Typo="Typo.h6">@_selectedDate.ToString("MMMM yyyy")</MudText>
+                </MudItem>
+                <MudItem>
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonth" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+
+    <!-- Summary Cards -->
+    @if (_overview is not null)
+    {
+        <MudItem xs="12" sm="6" lg="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Total Income</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Success">@_overview.TotalIncome.ToString("C", EurCulture)</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" lg="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Total Expenses</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Error">@_overview.TotalExpenses.ToString("C", EurCulture)</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" lg="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Net Balance</MudText>
+                <MudText Typo="Typo.h5" Color="@(_overview.NetBalance >= 0 ? Color.Success : Color.Error)">
+                    @_overview.NetBalance.ToString("C", EurCulture)
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" lg="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Transactions</MudText>
+                <MudText Typo="Typo.h5">@_overview.TransactionCount</MudText>
+            </MudPaper>
+        </MudItem>
+    }
+
+    <!-- Category Breakdown -->
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2" Style="min-height:320px">
+            <MudText Typo="Typo.h6" Class="mb-3">Expenses by Category</MudText>
+            @if (_categoryBreakdown is { Count: > 0 })
+            {
+                <MudSimpleTable Dense Hover Striped>
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th style="text-align:right">Amount</th>
+                            <th style="text-align:right">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _categoryBreakdown)
+                        {
+                            <tr>
+                                <td>
+                                    @if (item.CategoryColor is not null)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Style="@($"background:{item.CategoryColor};color:#fff")">
+                                            @item.CategoryName
+                                        </MudChip>
+                                    }
+                                    else
+                                    {
+                                        <span>@item.CategoryName</span>
+                                    }
+                                </td>
+                                <td style="text-align:right">@item.Amount.ToString("C", EurCulture)</td>
+                                <td style="text-align:right">@item.Percentage%</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+            else
+            {
+                <MudText Color="Color.Secondary">No expense data for this month.</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <!-- Budget Progress -->
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2" Style="min-height:320px">
+            <MudText Typo="Typo.h6" Class="mb-3">Budget Status</MudText>
+            @if (_budgets is { Count: > 0 })
+            {
+                @foreach (var b in _budgets)
+                {
+                    var color = b.PercentageUsed >= 100 ? Color.Error
+                        : b.PercentageUsed >= 80 ? Color.Warning
+                        : Color.Success;
+                    <div class="mb-3">
+                        <MudGrid AlignItems="Center">
+                            <MudItem xs="6"><MudText Typo="Typo.body2">@b.CategoryName</MudText></MudItem>
+                            <MudItem xs="6" Style="text-align:right">
+                                <MudText Typo="Typo.body2">
+                                    @b.SpentAmount.ToString("C", EurCulture) / @b.BudgetedAmount.ToString("C", EurCulture)
+                                </MudText>
+                            </MudItem>
+                        </MudGrid>
+                        <MudProgressLinear Color="@color" Value="@(Math.Min(b.PercentageUsed, 100))" Class="mt-1" />
+                    </div>
+                }
+            }
+            else
+            {
+                <MudText Color="Color.Secondary">No budgets configured.</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <!-- Cash Flow Trend -->
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-3">Cash Flow — Last 6 Months</MudText>
+            @if (_cashFlow is not null)
+            {
+                <MudSimpleTable Dense Hover>
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th style="text-align:right">Income</th>
+                            <th style="text-align:right">Expenses</th>
+                            <th style="text-align:right">Net</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in _cashFlow.Months)
+                        {
+                            <tr>
+                                <td>@(new DateOnly(m.Year, m.Month, 1).ToString("MMM yyyy"))</td>
+                                <td style="text-align:right; color:green">@m.Income.ToString("C", EurCulture)</td>
+                                <td style="text-align:right; color:red">@m.Expenses.ToString("C", EurCulture)</td>
+                                <td style="text-align:right; color:@(m.Net >= 0 ? "green" : "red")">@m.Net.ToString("C", EurCulture)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <!-- Recent Transactions -->
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudGrid AlignItems="Center" Class="mb-2">
+                <MudItem xs="6"><MudText Typo="Typo.h6">Recent Transactions</MudText></MudItem>
+                <MudItem xs="6" Style="text-align:right">
+                    <MudButton Href="/transactions" Variant="Variant.Text" Color="Color.Primary">View All</MudButton>
+                </MudItem>
+            </MudGrid>
+            @if (_transactions is { Count: > 0 })
+            {
+                <MudSimpleTable Dense Hover Striped>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th style="text-align:right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in _transactions.Take(10))
+                        {
+                            <tr>
+                                <td>@t.Date.ToString("dd.MM.yyyy")</td>
+                                <td>@t.Description</td>
+                                <td>@(t.CategoryName ?? "—")</td>
+                                <td style="text-align:right; color:@(t.Amount >= 0 ? "green" : "red")">
+                                    @t.Amount.ToString("C", EurCulture)
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+            else
+            {
+                <MudText Color="Color.Secondary">No transactions this month.</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private static readonly System.Globalization.CultureInfo EurCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+
+    private DateOnly _selectedDate = DateOnly.FromDateTime(DateTime.Now);
+    private MonthlyOverviewDto? _overview;
+    private IReadOnlyList<CategoryBreakdownItemDto>? _categoryBreakdown;
+    private CashFlowTrendDto? _cashFlow;
+    private IReadOnlyList<BudgetVsActualDto>? _budgets;
+    private IReadOnlyList<TransactionDto>? _transactions;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        var year = _selectedDate.Year;
+        var month = _selectedDate.Month;
+
+        var overviewTask = Mediator.Send(new GetMonthlyOverviewQuery(year, month));
+        var breakdownTask = Mediator.Send(new GetCategoryBreakdownQuery(year, month));
+        var cashFlowTask = Mediator.Send(new GetCashFlowTrendQuery(6));
+        var budgetTask = Mediator.Send(new GetBudgetVsActualQuery(year, month));
+        var txTask = Mediator.Send(new GetTransactionsByMonthQuery(year, month));
+
+        await Task.WhenAll(overviewTask, breakdownTask, cashFlowTask, budgetTask, txTask);
+
+        _overview = await overviewTask;
+        _categoryBreakdown = await breakdownTask;
+        _cashFlow = await cashFlowTask;
+        _budgets = await budgetTask;
+        _transactions = await txTask;
+    }
+
+    private async Task PrevMonth()
+    {
+        _selectedDate = _selectedDate.AddMonths(-1);
+        await LoadDataAsync();
+    }
+
+    private async Task NextMonth()
+    {
+        _selectedDate = _selectedDate.AddMonths(1);
+        await LoadDataAsync();
+    }
+}

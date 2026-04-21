@@ -1,0 +1,257 @@
+@using FinanceTracker.Application.Import.Commands.ConfirmImport
+@using FinanceTracker.Application.Import.Commands.ParseExcelFile
+@using FinanceTracker.Application.Import.DTOs
+@using FinanceTracker.Application.Accounts.DTOs
+@using FinanceTracker.Application.Accounts.Queries.GetAllAccounts
+@using FinanceTracker.Application.Categories.DTOs
+@using FinanceTracker.Application.Categories.Queries.GetAllCategories
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Upload" Class="mr-2" />
+            Import Excel Statement
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_step == 1)
+        {
+            <!-- Step 1: Upload -->
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.body1" Class="mb-3">
+                        Upload your bank statement Excel file (.xlsx). Columns expected: Date, Transaction Type, Amount (EUR), Description.
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="Guid" @bind-Value="_selectedAccountId" Label="Target Account" Required
+                               AnchorOrigin="Origin.BottomLeft">
+                        @foreach (var acc in _accounts)
+                        {
+                            <MudSelectItem T="Guid" Value="acc.Id">@acc.Name (@acc.BankName)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12">
+                    <InputFile id="fileInput" OnChange="HandleFileSelected" accept=".xlsx" style="display:none" />
+                    <MudButton HtmlTag="label" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.AttachFile"
+                               for="fileInput">
+                        @(_selectedFileName ?? "Choose .xlsx file")
+                    </MudButton>
+                </MudItem>
+                @if (_parseError is not null)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Error">@_parseError</MudAlert>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+        else if (_step == 2 && _preview is not null)
+        {
+            <!-- Step 2: Preview & Review -->
+            <MudAlert Severity="Severity.Info" Class="mb-3">
+                <b>@_preview.FileName</b> — @_preview.TotalRows rows parsed:
+                @_preview.ReadyRows ready, @_preview.DuplicateRows duplicates, @_preview.ErrorRows errors.
+            </MudAlert>
+
+            <MudTable Items="_previewRows" Dense Hover FixedHeader Height="400px">
+                <HeaderContent>
+                    <MudTh><MudCheckBox T="bool" Value="_selectAll" ValueChanged="ToggleSelectAll" /></MudTh>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Description</MudTh>
+                    <MudTh Style="text-align:right">Amount</MudTh>
+                    <MudTh>Category</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        <MudCheckBox T="bool" @bind-Value="context.Selected"
+                                     Disabled="context.Row.HasParseError" />
+                    </MudTd>
+                    <MudTd>@context.Row.Date?.ToString("dd.MM.yyyy")</MudTd>
+                    <MudTd>
+                        <MudTooltip Text="@context.Row.Description">
+                            <span style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block">
+                                @context.Row.Description
+                            </span>
+                        </MudTooltip>
+                    </MudTd>
+                    <MudTd Style="@AmountStyle(context.Row.Amount)">
+                        @context.Row.Amount?.ToString("C", EurCulture)
+                    </MudTd>
+                    <MudTd>
+                        <MudSelect T="Guid?" @bind-Value="context.CategoryId" Dense Margin="Margin.Dense"
+                                   AnchorOrigin="Origin.BottomLeft" Style="min-width:140px">
+                            <MudSelectItem T="Guid?" Value="(Guid?)null">— None —</MudSelectItem>
+                            @foreach (var cat in _categories)
+                            {
+                                <MudSelectItem T="Guid?" Value="(Guid?)cat.Id">@cat.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudTd>
+                    <MudTd>
+                        @if (context.Row.HasParseError)
+                        {
+                            <MudChip T="string" Color="Color.Error" Size="Size.Small">Error</MudChip>
+                        }
+                        else if (context.Row.IsDuplicate)
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">Duplicate</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Success" Size="Size.Small">Ready</MudChip>
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
+        @if (_step == 1)
+        {
+            <MudButton OnClick="ParseFileAsync" Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="@(_selectedFile is null || _selectedAccountId == Guid.Empty || _parsing)">
+                @if (_parsing)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate Class="mr-2" />
+                }
+                Next — Preview
+            </MudButton>
+        }
+        else if (_step == 2)
+        {
+            <MudButton OnClick="() => _step = 1" Variant="Variant.Outlined">Back</MudButton>
+            <MudButton OnClick="ConfirmImportAsync" Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="@(!_previewRows.Any(r => r.Selected) || _importing)">
+                @if (_importing)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate Class="mr-2" />
+                }
+                Import @_previewRows.Count(r => r.Selected) Transactions
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private static readonly System.Globalization.CultureInfo EurCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+
+    private static string AmountStyle(decimal? amount) =>
+        $"text-align:right; color:{(amount >= 0 ? "green" : "red")}";
+
+    private int _step = 1;
+    private IReadOnlyList<AccountDto> _accounts = [];
+    private IReadOnlyList<CategoryDto> _categories = [];
+    private Guid _selectedAccountId;
+    private IBrowserFile? _selectedFile;
+    private string? _selectedFileName;
+    private ImportPreviewDto? _preview;
+    private List<PreviewRowVm> _previewRows = [];
+    private bool _selectAll = true;
+    private bool _parsing;
+    private bool _importing;
+    private string? _parseError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var accTask = Mediator.Send(new GetAllAccountsQuery());
+        var catTask = Mediator.Send(new GetAllCategoriesQuery());
+        await Task.WhenAll(accTask, catTask);
+        _accounts = await accTask;
+        _categories = await catTask;
+        if (_accounts.Count > 0)
+            _selectedAccountId = _accounts[0].Id;
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _selectedFileName = e.File.Name;
+        _parseError = null;
+    }
+
+    private async Task ParseFileAsync()
+    {
+        if (_selectedFile is null) return;
+        _parsing = true;
+        _parseError = null;
+
+        try
+        {
+            using var stream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            _preview = await Mediator.Send(new ParseExcelFileCommand(stream, _selectedFile.Name, _selectedAccountId));
+
+            _previewRows = _preview.Rows
+                .Select(r => new PreviewRowVm(r) { Selected = !r.HasParseError && !r.IsDuplicate, CategoryId = r.SuggestedCategoryId })
+                .ToList();
+
+            _step = 2;
+        }
+        catch (Exception ex)
+        {
+            _parseError = $"Failed to parse file: {ex.Message}";
+        }
+        finally
+        {
+            _parsing = false;
+        }
+    }
+
+    private void ToggleSelectAll(bool value)
+    {
+        _selectAll = value;
+        foreach (var row in _previewRows.Where(r => !r.Row.HasParseError))
+            row.Selected = value;
+    }
+
+    private async Task ConfirmImportAsync()
+    {
+        _importing = true;
+        var selected = _previewRows
+            .Where(r => r.Selected && !r.Row.HasParseError && r.Row.Date.HasValue && r.Row.Amount.HasValue)
+            .Select(r => new ConfirmedImportRowDto(
+                r.Row.RowNumber,
+                r.Row.Date!.Value,
+                r.Row.TransactionType,
+                r.Row.Amount!.Value,
+                r.Row.Description,
+                r.Row.OriginalDescription,
+                r.CategoryId))
+            .ToList();
+
+        var result = await Mediator.Send(new ConfirmImportCommand(
+            _preview!.FileName,
+            _selectedAccountId,
+            _preview.TotalRows,
+            selected));
+
+        _importing = false;
+
+        if (result.Succeeded)
+        {
+            Snackbar.Add($"Successfully imported {selected.Count} transactions.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(result.Value));
+        }
+        else
+        {
+            Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private class PreviewRowVm(ImportPreviewRowDto row)
+    {
+        public ImportPreviewRowDto Row { get; } = row;
+        public bool Selected { get; set; }
+        public Guid? CategoryId { get; set; }
+    }
+}

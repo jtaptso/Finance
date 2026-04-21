@@ -1,0 +1,94 @@
+@page "/categories"
+@rendermode InteractiveServer
+@using FinanceTracker.Application.Categories.DTOs
+@using FinanceTracker.Application.Categories.Queries.GetAllCategories
+@using FinanceTracker.Application.Categories.Commands.DeleteCategory
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Categories – Finance Tracker</PageTitle>
+
+<MudGrid AlignItems="Center" Class="mb-3">
+    <MudItem xs="6"><MudText Typo="Typo.h5">Categories</MudText></MudItem>
+    <MudItem xs="6" Style="text-align:right">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   Href="/categories/new">Add Category</MudButton>
+    </MudItem>
+</MudGrid>
+
+<MudPaper Elevation="2">
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate Color="Color.Primary" />
+    }
+    <MudTable Items="_categories" Dense Hover Striped>
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Type</MudTh>
+            <MudTh>Keywords</MudTh>
+            <MudTh>Default</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                @if (context.Color is not null)
+                {
+                    <MudChip T="string" Size="Size.Small" Style="@($"background:{context.Color};color:#fff")">
+                        @context.Name
+                    </MudChip>
+                }
+                else
+                {
+                    <span>@context.Name</span>
+                }
+            </MudTd>
+            <MudTd>@context.Type</MudTd>
+            <MudTd>
+                <MudText Typo="Typo.caption">@string.Join(", ", context.Keywords.Take(5))</MudText>
+            </MudTd>
+            <MudTd>@(context.IsDefault ? "✓" : "")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               Href="@($"/categories/{context.Id}/edit")" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               Disabled="context.IsDefault"
+                               OnClick="@(() => DeleteAsync(context))" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Color="Color.Secondary" Class="pa-4">No categories found.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private bool _loading = true;
+    private IReadOnlyList<CategoryDto> _categories = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await Mediator.Send(new GetAllCategoriesQuery());
+        _loading = false;
+    }
+
+    private async Task DeleteAsync(CategoryDto cat)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete category '{cat.Name}'?");
+
+        if (confirmed)
+        {
+            var result = await Mediator.Send(new DeleteCategoryCommand(cat.Id));
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Category deleted.", Severity.Success);
+                _categories = await Mediator.Send(new GetAllCategoriesQuery());
+            }
+            else
+            {
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            }
+        }
+    }
+}

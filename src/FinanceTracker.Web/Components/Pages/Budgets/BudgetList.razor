@@ -1,0 +1,114 @@
+@page "/budgets"
+@rendermode InteractiveServer
+@using FinanceTracker.Application.Budgets.DTOs
+@using FinanceTracker.Application.Budgets.Queries.GetAllBudgets
+@using FinanceTracker.Application.Budgets.Queries.GetBudgetVsActual
+@using FinanceTracker.Application.Budgets.Commands.DeleteBudget
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Budgets – Finance Tracker</PageTitle>
+
+<MudGrid AlignItems="Center" Class="mb-3">
+    <MudItem xs="6"><MudText Typo="Typo.h5">Budgets</MudText></MudItem>
+    <MudItem xs="6" Style="text-align:right">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   Href="/budgets/new">Add Budget</MudButton>
+    </MudItem>
+</MudGrid>
+
+<!-- Budget vs Actual for current month -->
+@if (_budgetVsActual is { Count: > 0 })
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2">
+        <MudText Typo="Typo.h6" Class="mb-3">This Month's Progress — @DateTime.Now.ToString("MMMM yyyy")</MudText>
+        @foreach (var b in _budgetVsActual)
+        {
+            var color = b.PercentageUsed >= 100 ? Color.Error
+                : b.PercentageUsed >= 80 ? Color.Warning
+                : Color.Success;
+            <div class="mb-3">
+                <MudGrid AlignItems="Center">
+                    <MudItem xs="4"><MudText Typo="Typo.body1">@b.CategoryName</MudText></MudItem>
+                    <MudItem xs="4" Style="text-align:center">
+                        <MudText Typo="Typo.body2">
+                            @b.SpentAmount.ToString("C", EurCulture) / @b.BudgetedAmount.ToString("C", EurCulture)
+                        </MudText>
+                    </MudItem>
+                    <MudItem xs="4" Style="text-align:right">
+                        <MudChip T="string" Color="@color" Size="Size.Small">@b.PercentageUsed%</MudChip>
+                    </MudItem>
+                </MudGrid>
+                <MudProgressLinear Color="@color" Value="@(Math.Min(b.PercentageUsed, 100))" Class="mt-1" />
+            </div>
+        }
+    </MudPaper>
+}
+
+<MudPaper Elevation="2">
+    @if (_loading) { <MudProgressLinear Indeterminate Color="Color.Primary" /> }
+    <MudTable Items="_budgets" Dense Hover Striped>
+        <HeaderContent>
+            <MudTh>Category</MudTh>
+            <MudTh>Amount</MudTh>
+            <MudTh>Period</MudTh>
+            <MudTh>Start</MudTh>
+            <MudTh>End</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.CategoryName</MudTd>
+            <MudTd>@context.Amount.ToString("C", EurCulture)</MudTd>
+            <MudTd>@context.Period</MudTd>
+            <MudTd>@context.StartDate.ToString("dd.MM.yyyy")</MudTd>
+            <MudTd>@(context.EndDate?.ToString("dd.MM.yyyy") ?? "—")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               Href="@($"/budgets/{context.Id}/edit")" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => DeleteAsync(context))" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Color="Color.Secondary" Class="pa-4">No budgets configured.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private static readonly System.Globalization.CultureInfo EurCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+
+    private bool _loading = true;
+    private IReadOnlyList<BudgetDto> _budgets = [];
+    private IReadOnlyList<BudgetVsActualDto> _budgetVsActual = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var now = DateTime.Now;
+        var budgetTask = Mediator.Send(new GetAllBudgetsQuery());
+        var vaTask = Mediator.Send(new GetBudgetVsActualQuery(now.Year, now.Month));
+        await Task.WhenAll(budgetTask, vaTask);
+        _budgets = await budgetTask;
+        _budgetVsActual = await vaTask;
+        _loading = false;
+    }
+
+    private async Task DeleteAsync(BudgetDto budget)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete budget for '{budget.CategoryName}'?");
+
+        if (confirmed)
+        {
+            var result = await Mediator.Send(new DeleteBudgetCommand(budget.Id));
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Budget deleted.", Severity.Success);
+                _budgets = await Mediator.Send(new GetAllBudgetsQuery());
+            }
+            else
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+    }
+}
