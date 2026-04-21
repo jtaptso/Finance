@@ -10,6 +10,9 @@ public class Account
     public decimal InitialBalance { get; set; }
     public bool IsActive { get; set; } = true;
 
+    public decimal CurrentBalance =>
+        InitialBalance + Transactions.Sum(t => t.Amount);
+
     public ICollection<Transaction> Transactions { get; set; } = [];
     public ICollection<ImportHistory> ImportHistories { get; set; } = [];
 }
