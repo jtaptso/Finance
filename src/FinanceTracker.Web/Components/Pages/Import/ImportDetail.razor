@@ -1,0 +1,102 @@
+@page "/import/{Id:guid}"
+@rendermode InteractiveServer
+@using FinanceTracker.Application.Import.DTOs
+@using FinanceTracker.Application.Import.Queries.GetImportDetail
+@using FinanceTracker.Application.Transactions.DTOs
+@inject IMediator Mediator
+@inject NavigationManager Nav
+
+<PageTitle>Import Detail – Finance Tracker</PageTitle>
+
+<MudBreadcrumbs Items="_breadcrumbs" Class="mb-3 pa-0" />
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate />
+}
+else if (_import is null)
+{
+    <MudAlert Severity="Severity.Error">Import not found.</MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2">
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">File</MudText>
+                <MudText>@_import.FileName</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="3" md="2">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Month</MudText>
+                <MudText>@_import.Month.ToString("MMMM yyyy")</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="3" md="2">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Imported At</MudText>
+                <MudText>@_import.ImportedAt.ToString("dd.MM.yyyy HH:mm")</MudText>
+            </MudItem>
+            <MudItem xs="4" sm="2" md="1">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Total</MudText>
+                <MudText>@_import.TotalRows</MudText>
+            </MudItem>
+            <MudItem xs="4" sm="2" md="1">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Imported</MudText>
+                <MudText Color="Color.Success">@_import.ImportedRows</MudText>
+            </MudItem>
+            <MudItem xs="4" sm="2" md="1">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Skipped</MudText>
+                <MudText Color="Color.Warning">@_import.SkippedRows</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Elevation="2">
+        <MudTable Items="_transactions" Dense Hover Striped FixedHeader Height="600px">
+            <HeaderContent>
+                <MudTh>Date</MudTh>
+                <MudTh>Description</MudTh>
+                <MudTh>Type</MudTh>
+                <MudTh>Category</MudTh>
+                <MudTh Style="text-align:right">Amount</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Date.ToString("dd.MM.yyyy")</MudTd>
+                <MudTd>@context.Description</MudTd>
+                <MudTd>@context.TransactionType</MudTd>
+                <MudTd>@(context.CategoryName ?? "—")</MudTd>
+                <MudTd Style="@AmountStyle(context.Amount)">@context.Amount.ToString("C", EurCulture)</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Color="Color.Secondary" Class="pa-4">No transactions in this import.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private static readonly System.Globalization.CultureInfo EurCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+
+    private bool _loading = true;
+    private ImportHistoryDto? _import;
+    private IReadOnlyList<TransactionDto> _transactions = [];
+    private List<BreadcrumbItem> _breadcrumbs = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _breadcrumbs =
+        [
+            new("Import History", "/import"),
+            new("Detail", null, disabled: true)
+        ];
+
+        var (import, transactions) = await Mediator.Send(new GetImportDetailQuery(Id));
+        _import = import;
+        _transactions = transactions;
+        _loading = false;
+    }
+
+    private static string AmountStyle(decimal amount) =>
+        $"text-align:right; color:{(amount >= 0 ? "green" : "red")}";
+}

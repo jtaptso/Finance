@@ -1,0 +1,164 @@
+@page "/accounts/new"
+@page "/accounts/{Id:guid}/edit"
+@rendermode InteractiveServer
+@using FinanceTracker.Application.Accounts.DTOs
+@using FinanceTracker.Application.Accounts.Queries.GetAccountById
+@using FinanceTracker.Application.Accounts.Commands.CreateAccount
+@using FinanceTracker.Application.Accounts.Commands.UpdateAccount
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>@(IsEdit ? "Edit Account" : "New Account") – Finance Tracker</PageTitle>
+
+<MudBreadcrumbs Items="_breadcrumbs" Class="mb-3 pa-0" />
+
+<MudPaper Class="pa-6" Elevation="2" Style="max-width:560px">
+    <MudText Typo="Typo.h6" Class="mb-4">@(IsEdit ? "Edit Account" : "New Account")</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate />
+    }
+    else
+    {
+        <MudForm @ref="_form" Model="_model">
+            <MudGrid Spacing="3">
+                <MudItem xs="12">
+                    <MudTextField Label="Account Name" @bind-Value="_model.Name"
+                                  Required MaxLength="100"
+                                  Placeholder="e.g. Deutsche Bank Girokonto" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Bank Name" @bind-Value="_model.BankName"
+                                  MaxLength="100" Placeholder="e.g. Deutsche Bank" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Account Number / IBAN" @bind-Value="_model.AccountNumber"
+                                  MaxLength="50" Placeholder="DE89..." />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Currency" @bind-Value="_model.Currency"
+                                  Required MaxLength="3" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal" Label="Initial Balance" @bind-Value="_model.InitialBalance"
+                                     Format="F2"
+                                     HelperText="Starting balance before any transactions" />
+                </MudItem>
+                @if (IsEdit)
+                {
+                    <MudItem xs="12">
+                        <MudCheckBox T="bool" @bind-Value="_model.IsActive" Label="Account is active" />
+                    </MudItem>
+                }
+            </MudGrid>
+
+            @if (_errorMessage is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-3">@_errorMessage</MudAlert>
+            }
+
+            <MudStack Row Class="mt-5" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="SubmitAsync" Disabled="_saving">
+                    @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate Class="mr-2" /> }
+                    @(IsEdit ? "Save Changes" : "Create Account")
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Href="/accounts">Cancel</MudButton>
+            </MudStack>
+        </MudForm>
+    }
+</MudPaper>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private bool IsEdit => Id.HasValue;
+    private bool _loading = true;
+    private bool _saving;
+    private string? _errorMessage;
+    private MudForm _form = default!;
+
+    private List<BreadcrumbItem> _breadcrumbs = [];
+    private AccountFormModel _model = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _breadcrumbs =
+        [
+            new("Accounts", "/accounts"),
+            new(IsEdit ? "Edit" : "New", null, disabled: true)
+        ];
+
+        if (IsEdit)
+        {
+            var acc = await Mediator.Send(new GetAccountByIdQuery(Id!.Value));
+            if (acc is not null)
+            {
+                _model = new AccountFormModel
+                {
+                    Name = acc.Name,
+                    BankName = acc.BankName,
+                    AccountNumber = acc.AccountNumber,
+                    Currency = acc.Currency,
+                    InitialBalance = acc.InitialBalance,
+                    IsActive = acc.IsActive
+                };
+            }
+            else
+            {
+                Nav.NavigateTo("/accounts");
+                return;
+            }
+        }
+
+        _loading = false;
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        _saving = true;
+        _errorMessage = null;
+
+        if (IsEdit)
+        {
+            var result = await Mediator.Send(new UpdateAccountCommand(
+                Id!.Value, _model.Name, _model.BankName, _model.AccountNumber,
+                _model.Currency, _model.InitialBalance, _model.IsActive));
+
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Account updated.", Severity.Success);
+                Nav.NavigateTo("/accounts");
+            }
+            else
+            {
+                _errorMessage = string.Join(", ", result.Errors);
+                _saving = false;
+            }
+        }
+        else
+        {
+            await Mediator.Send(new CreateAccountCommand(
+                _model.Name, _model.BankName, _model.AccountNumber,
+                _model.Currency, _model.InitialBalance));
+
+            Snackbar.Add("Account created.", Severity.Success);
+            Nav.NavigateTo("/accounts");
+        }
+    }
+
+    private class AccountFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? BankName { get; set; }
+        public string? AccountNumber { get; set; }
+        public string Currency { get; set; } = "EUR";
+        public decimal InitialBalance { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}
