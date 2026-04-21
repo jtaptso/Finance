@@ -159,37 +159,27 @@
         try
         {
             _categories = await CategoryService.GetAllAsync(_cts.Token);
-
-            if (_disposed) return;
-
             _transactions = await TransactionService.GetByMonthAsync(_selectedDate.Year, _selectedDate.Month, _cts.Token);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { return; }
+        finally
         {
-            if (!_disposed)
-                _loading = false;
+            if (!_disposed) _loading = false;
         }
     }
 
     private async Task LoadTransactionsAsync()
     {
+        if (_disposed) return;
         _loading = true;
         try
         {
-            var data = await TransactionService.GetByMonthAsync(
-            _selectedDate.Year,
-            _selectedDate.Month,
-            _cts.Token);
-
-            if (_disposed) return;
-            
-            _transactions = data;
+            _transactions = await TransactionService.GetByMonthAsync(_selectedDate.Year, _selectedDate.Month, _cts.Token);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { return; }
         finally
         {
-            if (!_disposed)
-                _loading = false;
+            if (!_disposed) _loading = false;
         }
     }
 
@@ -205,7 +195,7 @@
         await LoadTransactionsAsync();
     }
 
-    private void ApplyFilter() => StateHasChanged();
+    private void ApplyFilter() { if (!_disposed) StateHasChanged(); }
 
     private async Task DeleteTransactionAsync(TransactionDto tx)
     {
@@ -215,7 +205,6 @@
         if (confirmed)
         {
             var result = await TransactionService.DeleteAsync(tx.Id, _cts.Token);
-            if (_disposed) return;
             if (result.Succeeded)
             {
                 Snackbar.Add("Transaction deleted.", Severity.Success);
