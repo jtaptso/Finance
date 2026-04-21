@@ -1,6 +1,5 @@
 @page "/import/{Id:guid}"
-@rendermode InteractiveServer
-@attribute [StreamRendering(true)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Import.DTOs
 @using FinanceTracker.Application.Import.Queries.GetImportDetail
 @using FinanceTracker.Application.Transactions.DTOs

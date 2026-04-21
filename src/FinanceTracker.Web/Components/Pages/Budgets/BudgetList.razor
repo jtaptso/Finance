@@ -1,6 +1,5 @@
 @page "/budgets"
-@rendermode InteractiveServer
-@attribute [StreamRendering(true)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Budgets.DTOs
 @using FinanceTracker.Application.Budgets.Queries.GetAllBudgets
 @using FinanceTracker.Application.Budgets.Queries.GetBudgetVsActual

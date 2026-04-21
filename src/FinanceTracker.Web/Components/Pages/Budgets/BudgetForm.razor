@@ -1,7 +1,6 @@
 @page "/budgets/new"
 @page "/budgets/{Id:guid}/edit"
-@rendermode InteractiveServer
-@attribute [StreamRendering(true)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Budgets.DTOs
 @using FinanceTracker.Application.Budgets.Queries.GetBudgetById
 @using FinanceTracker.Application.Budgets.Commands.CreateBudget

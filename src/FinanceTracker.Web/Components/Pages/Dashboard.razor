@@ -1,6 +1,5 @@
 @page "/"
-@rendermode InteractiveServer
-@attribute [StreamRendering(true)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Dashboard.DTOs
 @using FinanceTracker.Application.Dashboard.Queries.GetMonthlyOverview
 @using FinanceTracker.Application.Dashboard.Queries.GetCategoryBreakdown

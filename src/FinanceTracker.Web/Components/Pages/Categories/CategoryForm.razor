@@ -1,7 +1,6 @@
 @page "/categories/new"
 @page "/categories/{Id:guid}/edit"
-@rendermode InteractiveServer
-@attribute [StreamRendering(true)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Categories.DTOs
 @using FinanceTracker.Application.Categories.Queries.GetAllCategories
 @using FinanceTracker.Application.Categories.Queries.GetCategoryById

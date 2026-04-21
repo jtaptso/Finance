@@ -1,7 +1,6 @@
 @page "/accounts/new"
 @page "/accounts/{Id:guid}/edit"
-@rendermode InteractiveServer
-@attribute [StreamRendering(true)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Accounts.DTOs
 @using FinanceTracker.Application.Accounts.Queries.GetAccountById
 @using FinanceTracker.Application.Accounts.Commands.CreateAccount

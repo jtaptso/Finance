@@ -1,7 +1,6 @@
 @page "/transactions/new"
 @page "/transactions/{Id:guid}/edit"
-@rendermode InteractiveServer
-@attribute [StreamRendering(true)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Transactions.DTOs
 @using FinanceTracker.Application.Transactions.Queries.GetTransactionById
 @using FinanceTracker.Application.Transactions.Commands.CreateTransaction

@@ -1,6 +1,5 @@
 @page "/categories"
-@rendermode InteractiveServer
-@attribute [StreamRendering(true)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Categories.DTOs
 @using FinanceTracker.Application.Categories.Queries.GetAllCategories
 @using FinanceTracker.Application.Categories.Commands.DeleteCategory
