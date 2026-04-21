@@ -1,8 +1,5 @@
-using FinanceTracker.Domain.Entities;
 using FinanceTracker.Domain.Enums;
-using FinanceTracker.Domain.Interfaces;
 using FluentValidation;
-using MediatR;
 
 namespace FinanceTracker.Application.Transactions.Commands.CreateTransaction;
 
@@ -16,7 +13,7 @@ public record CreateTransactionCommand(
     string? Notes,
     bool IsRecurring = false,
     string Currency = "EUR"
-) : IRequest<Guid>;
+);
 
 public class CreateTransactionCommandValidator : AbstractValidator<CreateTransactionCommand>
 {
@@ -30,36 +27,3 @@ public class CreateTransactionCommandValidator : AbstractValidator<CreateTransac
     }
 }
 
-public class CreateTransactionCommandHandler : IRequestHandler<CreateTransactionCommand, Guid>
-{
-    private readonly IUnitOfWork _uow;
-
-    public CreateTransactionCommandHandler(IUnitOfWork uow)
-    {
-        _uow = uow;
-    }
-
-    public async Task<Guid> Handle(CreateTransactionCommand request, CancellationToken cancellationToken)
-    {
-        var transaction = new Transaction
-        {
-            Id = Guid.NewGuid(),
-            Date = request.Date,
-            TransactionType = request.TransactionType,
-            Amount = request.Amount,
-            Currency = request.Currency,
-            Description = request.Description,
-            AccountId = request.AccountId,
-            CategoryId = request.CategoryId,
-            Notes = request.Notes,
-            IsRecurring = request.IsRecurring,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        _uow.Transactions.Add(transaction);
-        await _uow.SaveChangesAsync(cancellationToken);
-
-        return transaction.Id;
-    }
-}

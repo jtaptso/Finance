@@ -1,30 +1,7 @@
-using FinanceTracker.Application.Common.Mappings;
 using FinanceTracker.Application.Import.DTOs;
 using FinanceTracker.Application.Transactions.DTOs;
-using FinanceTracker.Domain.Interfaces;
-using MediatR;
 
 namespace FinanceTracker.Application.Import.Queries.GetImportDetail;
 
-public record GetImportDetailQuery(Guid ImportHistoryId) : IRequest<(ImportHistoryDto? Import, IReadOnlyList<TransactionDto> Transactions)>;
+public record GetImportDetailQuery(Guid ImportHistoryId);
 
-public class GetImportDetailHandler : IRequestHandler<GetImportDetailQuery, (ImportHistoryDto? Import, IReadOnlyList<TransactionDto> Transactions)>
-{
-    private readonly IUnitOfWork _uow;
-    public GetImportDetailHandler(IUnitOfWork uow) => _uow = uow;
-
-    public async Task<(ImportHistoryDto? Import, IReadOnlyList<TransactionDto> Transactions)> Handle(
-        GetImportDetailQuery request, CancellationToken cancellationToken)
-    {
-        var importHistory = await _uow.ImportHistories.GetByIdAsync(request.ImportHistoryId, cancellationToken);
-        if (importHistory is null)
-            return (null, []);
-
-        var transactions = await _uow.Transactions.GetByImportHistoryIdAsync(request.ImportHistoryId, cancellationToken);
-
-        return (
-            importHistory.ToDto(),
-            transactions.Select(t => t.ToDto()).ToList()
-        );
-    }
-}

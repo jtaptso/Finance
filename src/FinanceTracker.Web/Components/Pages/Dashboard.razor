@@ -1,14 +1,8 @@
 @page "/"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
-@using FinanceTracker.Application.Dashboard.DTOs
-@using FinanceTracker.Application.Dashboard.Queries.GetMonthlyOverview
-@using FinanceTracker.Application.Dashboard.Queries.GetCategoryBreakdown
-@using FinanceTracker.Application.Dashboard.Queries.GetCashFlowTrend
-@using FinanceTracker.Application.Budgets.DTOs
-@using FinanceTracker.Application.Budgets.Queries.GetBudgetVsActual
-@using FinanceTracker.Application.Transactions.DTOs
-@using FinanceTracker.Application.Transactions.Queries.GetTransactionsByMonth
-@inject IMediator Mediator
+@inject IDashboardService DashboardService
+@inject IBudgetService BudgetService
+@inject ITransactionService TransactionService
 
 <PageTitle>Dashboard – Finance Tracker</PageTitle>
 
@@ -230,11 +224,11 @@
         var year = _selectedDate.Year;
         var month = _selectedDate.Month;
 
-        _overview = await Mediator.Send(new GetMonthlyOverviewQuery(year, month));
-        _categoryBreakdown = await Mediator.Send(new GetCategoryBreakdownQuery(year, month));
-        _cashFlow = await Mediator.Send(new GetCashFlowTrendQuery(6));
-        _budgets = await Mediator.Send(new GetBudgetVsActualQuery(year, month));
-        _transactions = await Mediator.Send(new GetTransactionsByMonthQuery(year, month));
+        _overview = await DashboardService.GetMonthlyOverviewAsync(year, month);
+        _categoryBreakdown = await DashboardService.GetCategoryBreakdownAsync(year, month);
+        _cashFlow = await DashboardService.GetCashFlowTrendAsync(6);
+        _budgets = await BudgetService.GetVsActualAsync(year, month);
+        _transactions = await TransactionService.GetByMonthAsync(year, month);
     }
 
     private async Task PrevMonth()

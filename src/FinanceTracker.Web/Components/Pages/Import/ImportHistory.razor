@@ -1,9 +1,6 @@
 @page "/import"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
-@using FinanceTracker.Application.Import.DTOs
-@using FinanceTracker.Application.Import.Queries.GetImportHistory
-@using FinanceTracker.Application.Import.Commands.DeleteImport
-@inject IMediator Mediator
+@inject IImportService ImportService
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -60,7 +57,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _imports = await Mediator.Send(new GetImportHistoryQuery());
+        _imports = await ImportService.GetHistoryAsync();
         _loading = false;
     }
 
@@ -79,11 +76,11 @@
 
         if (confirmed)
         {
-            var result = await Mediator.Send(new DeleteImportCommand(import.Id));
+            var result = await ImportService.DeleteAsync(import.Id);
             if (result.Succeeded)
             {
                 Snackbar.Add("Import undone successfully.", Severity.Success);
-                _imports = await Mediator.Send(new GetImportHistoryQuery());
+                _imports = await ImportService.GetHistoryAsync();
             }
             else
                 Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);

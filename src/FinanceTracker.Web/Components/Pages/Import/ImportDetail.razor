@@ -1,9 +1,6 @@
 @page "/import/{Id:guid}"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
-@using FinanceTracker.Application.Import.DTOs
-@using FinanceTracker.Application.Import.Queries.GetImportDetail
-@using FinanceTracker.Application.Transactions.DTOs
-@inject IMediator Mediator
+@inject IImportService ImportService
 @inject NavigationManager Nav
 
 <PageTitle>Import Detail – Finance Tracker</PageTitle>
@@ -91,7 +88,7 @@ else
             new("Detail", null, disabled: true)
         ];
 
-        var (import, transactions) = await Mediator.Send(new GetImportDetailQuery(Id));
+        var (import, transactions) = await ImportService.GetDetailAsync(Id);
         _import = import;
         _transactions = transactions;
         _loading = false;

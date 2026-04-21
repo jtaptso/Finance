@@ -1,10 +1,6 @@
 @page "/budgets"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
-@using FinanceTracker.Application.Budgets.DTOs
-@using FinanceTracker.Application.Budgets.Queries.GetAllBudgets
-@using FinanceTracker.Application.Budgets.Queries.GetBudgetVsActual
-@using FinanceTracker.Application.Budgets.Commands.DeleteBudget
-@inject IMediator Mediator
+@inject IBudgetService BudgetService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 
@@ -87,8 +83,8 @@
     protected override async Task OnInitializedAsync()
     {
         var now = DateTime.Now;
-        _budgets = await Mediator.Send(new GetAllBudgetsQuery());
-        _budgetVsActual = await Mediator.Send(new GetBudgetVsActualQuery(now.Year, now.Month));
+        _budgets = await BudgetService.GetAllAsync();
+        _budgetVsActual = await BudgetService.GetVsActualAsync(now.Year, now.Month);
         _loading = false;
     }
 
@@ -98,11 +94,11 @@
 
         if (confirmed)
         {
-            var result = await Mediator.Send(new DeleteBudgetCommand(budget.Id));
+            var result = await BudgetService.DeleteAsync(budget.Id);
             if (result.Succeeded)
             {
                 Snackbar.Add("Budget deleted.", Severity.Success);
-                _budgets = await Mediator.Send(new GetAllBudgetsQuery());
+                _budgets = await BudgetService.GetAllAsync();
             }
             else
                 Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);

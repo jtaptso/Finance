@@ -1,11 +1,11 @@
 @using FinanceTracker.Application.Import.Commands.ConfirmImport
-@using FinanceTracker.Application.Import.Commands.ParseExcelFile
 @using FinanceTracker.Application.Import.DTOs
 @using FinanceTracker.Application.Accounts.DTOs
-@using FinanceTracker.Application.Accounts.Queries.GetAllAccounts
 @using FinanceTracker.Application.Categories.DTOs
-@using FinanceTracker.Application.Categories.Queries.GetAllCategories
-@inject IMediator Mediator
+@using FinanceTracker.Application.Services
+@inject IImportService ImportService
+@inject IAccountService AccountService
+@inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
 
 <MudDialog>
@@ -162,8 +162,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _accounts = await Mediator.Send(new GetAllAccountsQuery());
-        _categories = await Mediator.Send(new GetAllCategoriesQuery());
+        _accounts = await AccountService.GetAllAsync();
+        _categories = await CategoryService.GetAllAsync();
         if (_accounts.Count > 0)
             _selectedAccountId = _accounts[0].Id;
     }
@@ -184,7 +184,7 @@
         try
         {
             using var stream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
-            _preview = await Mediator.Send(new ParseExcelFileCommand(stream, _selectedFile.Name, _selectedAccountId));
+            _preview = await ImportService.ParseExcelAsync(stream, _selectedFile.Name, _selectedAccountId);
 
             _previewRows = _preview.Rows
                 .Select(r => new PreviewRowVm(r) { Selected = !r.HasParseError && !r.IsDuplicate, CategoryId = r.SuggestedCategoryId })
@@ -224,7 +224,7 @@
                 r.CategoryId))
             .ToList();
 
-        var result = await Mediator.Send(new ConfirmImportCommand(
+        var result = await ImportService.ConfirmAsync(new ConfirmImportCommand(
             _preview!.FileName,
             _selectedAccountId,
             _preview.TotalRows,

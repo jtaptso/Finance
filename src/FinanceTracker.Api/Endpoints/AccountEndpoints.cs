@@ -1,10 +1,7 @@
 using FinanceTracker.Application.Accounts.Commands.CreateAccount;
-using FinanceTracker.Application.Accounts.Commands.DeleteAccount;
 using FinanceTracker.Application.Accounts.Commands.UpdateAccount;
 using FinanceTracker.Application.Accounts.DTOs;
-using FinanceTracker.Application.Accounts.Queries.GetAccountById;
-using FinanceTracker.Application.Accounts.Queries.GetAllAccounts;
-using MediatR;
+using FinanceTracker.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinanceTracker.Api.Endpoints;
@@ -15,35 +12,35 @@ public static class AccountEndpoints
     {
         var group = app.MapGroup("/api/accounts").WithTags("Accounts");
 
-        group.MapGet("/", async (IMediator mediator, CancellationToken ct) =>
+        group.MapGet("/", async (IAccountService svc, CancellationToken ct) =>
         {
-            var result = await mediator.Send(new GetAllAccountsQuery(), ct);
+            var result = await svc.GetAllAsync(ct);
             return Results.Ok(result);
         })
         .WithName("GetAllAccounts")
         .Produces<IReadOnlyList<AccountDto>>();
 
-        group.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        group.MapGet("/{id:guid}", async (Guid id, IAccountService svc, CancellationToken ct) =>
         {
-            var result = await mediator.Send(new GetAccountByIdQuery(id), ct);
+            var result = await svc.GetByIdAsync(id, ct);
             return result is null ? Results.NotFound() : Results.Ok(result);
         })
         .WithName("GetAccountById")
         .Produces<AccountDto>()
         .Produces(StatusCodes.Status404NotFound);
 
-        group.MapPost("/", async (CreateAccountCommand command, IMediator mediator, CancellationToken ct) =>
+        group.MapPost("/", async (CreateAccountCommand command, IAccountService svc, CancellationToken ct) =>
         {
-            var id = await mediator.Send(command, ct);
+            var id = await svc.CreateAsync(command, ct);
             return Results.CreatedAtRoute("GetAccountById", new { id }, new { id });
         })
         .WithName("CreateAccount")
         .Produces(StatusCodes.Status201Created);
 
-        group.MapPut("/{id:guid}", async (Guid id, [FromBody] UpdateAccountRequest request, IMediator mediator, CancellationToken ct) =>
+        group.MapPut("/{id:guid}", async (Guid id, [FromBody] UpdateAccountRequest request, IAccountService svc, CancellationToken ct) =>
         {
             var command = new UpdateAccountCommand(id, request.Name, request.BankName, request.AccountNumber, request.Currency, request.InitialBalance, request.IsActive);
-            var result = await mediator.Send(command, ct);
+            var result = await svc.UpdateAsync(command, ct);
             if (!result.Succeeded)
                 return Results.BadRequest(result.Errors);
             return Results.NoContent();
@@ -52,9 +49,9 @@ public static class AccountEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status400BadRequest);
 
-        group.MapDelete("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        group.MapDelete("/{id:guid}", async (Guid id, IAccountService svc, CancellationToken ct) =>
         {
-            var result = await mediator.Send(new DeleteAccountCommand(id), ct);
+            var result = await svc.DeleteAsync(id, ct);
             if (!result.Succeeded)
                 return Results.BadRequest(result.Errors);
             return Results.NoContent();

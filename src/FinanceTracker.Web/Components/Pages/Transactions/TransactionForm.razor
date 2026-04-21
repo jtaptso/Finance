@@ -1,16 +1,10 @@
 @page "/transactions/new"
 @page "/transactions/{Id:guid}/edit"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
-@using FinanceTracker.Application.Transactions.DTOs
-@using FinanceTracker.Application.Transactions.Queries.GetTransactionById
-@using FinanceTracker.Application.Transactions.Commands.CreateTransaction
-@using FinanceTracker.Application.Transactions.Commands.UpdateTransaction
-@using FinanceTracker.Application.Categories.DTOs
-@using FinanceTracker.Application.Categories.Queries.GetAllCategories
-@using FinanceTracker.Application.Accounts.DTOs
-@using FinanceTracker.Application.Accounts.Queries.GetAllAccounts
 @using FinanceTracker.Domain.Enums
-@inject IMediator Mediator
+@inject ITransactionService TransactionService
+@inject ICategoryService CategoryService
+@inject IAccountService AccountService
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
@@ -121,12 +115,12 @@
             new(IsEdit ? "Edit" : "New", null, disabled: true)
         ];
 
-        _categories = await Mediator.Send(new GetAllCategoriesQuery());
-        _accounts = await Mediator.Send(new GetAllAccountsQuery());
+        _categories = await CategoryService.GetAllAsync();
+        _accounts = await AccountService.GetAllAsync();
 
         if (IsEdit)
         {
-            var tx = await Mediator.Send(new GetTransactionByIdQuery(Id!.Value));
+            var tx = await TransactionService.GetByIdAsync(Id!.Value);
             if (tx is not null)
             {
                 _model = new TransactionFormModel
@@ -169,7 +163,7 @@
 
         if (IsEdit)
         {
-            var result = await Mediator.Send(new UpdateTransactionCommand(
+            var result = await TransactionService.UpdateAsync(new UpdateTransactionCommand(
                 Id!.Value, date, _model.TransactionType, _model.Amount,
                 _model.Description, _model.AccountId, _model.CategoryId,
                 _model.Notes, _model.IsRecurring));
@@ -187,7 +181,7 @@
         }
         else
         {
-            var id = await Mediator.Send(new CreateTransactionCommand(
+            var id = await TransactionService.CreateAsync(new CreateTransactionCommand(
                 date, _model.TransactionType, _model.Amount,
                 _model.Description, _model.AccountId, _model.CategoryId,
                 _model.Notes, _model.IsRecurring));

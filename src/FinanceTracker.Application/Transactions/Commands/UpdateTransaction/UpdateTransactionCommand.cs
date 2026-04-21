@@ -1,8 +1,6 @@
 using FinanceTracker.Application.Common.Models;
 using FinanceTracker.Domain.Enums;
-using FinanceTracker.Domain.Interfaces;
 using FluentValidation;
-using MediatR;
 
 namespace FinanceTracker.Application.Transactions.Commands.UpdateTransaction;
 
@@ -17,7 +15,7 @@ public record UpdateTransactionCommand(
     string? Notes,
     bool IsRecurring,
     string Currency = "EUR"
-) : IRequest<Result>;
+);
 
 public class UpdateTransactionCommandValidator : AbstractValidator<UpdateTransactionCommand>
 {
@@ -32,35 +30,3 @@ public class UpdateTransactionCommandValidator : AbstractValidator<UpdateTransac
     }
 }
 
-public class UpdateTransactionCommandHandler : IRequestHandler<UpdateTransactionCommand, Result>
-{
-    private readonly IUnitOfWork _uow;
-
-    public UpdateTransactionCommandHandler(IUnitOfWork uow)
-    {
-        _uow = uow;
-    }
-
-    public async Task<Result> Handle(UpdateTransactionCommand request, CancellationToken cancellationToken)
-    {
-        var transaction = await _uow.Transactions.GetByIdAsync(request.Id, cancellationToken);
-        if (transaction is null)
-            return Result.Failure($"Transaction {request.Id} not found.");
-
-        transaction.Date = request.Date;
-        transaction.TransactionType = request.TransactionType;
-        transaction.Amount = request.Amount;
-        transaction.Currency = request.Currency;
-        transaction.Description = request.Description;
-        transaction.AccountId = request.AccountId;
-        transaction.CategoryId = request.CategoryId;
-        transaction.Notes = request.Notes;
-        transaction.IsRecurring = request.IsRecurring;
-        transaction.UpdatedAt = DateTime.UtcNow;
-
-        _uow.Transactions.Update(transaction);
-        await _uow.SaveChangesAsync(cancellationToken);
-
-        return Result.Success();
-    }
-}

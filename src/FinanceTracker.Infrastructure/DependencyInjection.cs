@@ -1,4 +1,5 @@
 using FinanceTracker.Application.Common.Interfaces;
+using FinanceTracker.Application.Services;
 using FinanceTracker.Domain.Interfaces;
 using FinanceTracker.Infrastructure.Persistence;
 using FinanceTracker.Infrastructure.Persistence.Repositories;
@@ -34,6 +35,13 @@ public static class DependencyInjection
         services.AddScoped<IImportHistoryRepository, ImportHistoryRepository>();
         services.AddScoped<ICategorizationService, CategorizationService>();
         services.AddScoped<IExcelImportService, ExcelParsingService>();
+
+        services.AddScoped<ITransactionService, TransactionService>();
+        services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IBudgetService, BudgetService>();
+        services.AddScoped<IImportService, ImportService>();
+        services.AddScoped<IDashboardService, DashboardService>();
 
         return services;
     }

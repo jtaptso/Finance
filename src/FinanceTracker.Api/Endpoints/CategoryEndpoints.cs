@@ -1,11 +1,8 @@
 using FinanceTracker.Application.Categories.Commands.CreateCategory;
-using FinanceTracker.Application.Categories.Commands.DeleteCategory;
 using FinanceTracker.Application.Categories.Commands.UpdateCategory;
 using FinanceTracker.Application.Categories.DTOs;
-using FinanceTracker.Application.Categories.Queries.GetAllCategories;
-using FinanceTracker.Application.Categories.Queries.GetCategoryById;
+using FinanceTracker.Application.Services;
 using FinanceTracker.Domain.Enums;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinanceTracker.Api.Endpoints;
@@ -16,35 +13,32 @@ public static class CategoryEndpoints
     {
         var group = app.MapGroup("/api/categories").WithTags("Categories");
 
-        group.MapGet("/", async (IMediator mediator, CancellationToken ct) =>
-        {
-            var result = await mediator.Send(new GetAllCategoriesQuery(), ct);
-            return Results.Ok(result);
-        })
+        group.MapGet("/", async (ICategoryService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAllAsync(ct)))
         .WithName("GetAllCategories")
         .Produces<IReadOnlyList<CategoryDto>>();
 
-        group.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        group.MapGet("/{id:guid}", async (Guid id, ICategoryService svc, CancellationToken ct) =>
         {
-            var result = await mediator.Send(new GetCategoryByIdQuery(id), ct);
+            var result = await svc.GetByIdAsync(id, ct);
             return result is null ? Results.NotFound() : Results.Ok(result);
         })
         .WithName("GetCategoryById")
         .Produces<CategoryDto>()
         .Produces(StatusCodes.Status404NotFound);
 
-        group.MapPost("/", async (CreateCategoryCommand command, IMediator mediator, CancellationToken ct) =>
+        group.MapPost("/", async (CreateCategoryCommand command, ICategoryService svc, CancellationToken ct) =>
         {
-            var id = await mediator.Send(command, ct);
+            var id = await svc.CreateAsync(command, ct);
             return Results.CreatedAtRoute("GetCategoryById", new { id }, new { id });
         })
         .WithName("CreateCategory")
         .Produces(StatusCodes.Status201Created);
 
-        group.MapPut("/{id:guid}", async (Guid id, [FromBody] UpdateCategoryRequest request, IMediator mediator, CancellationToken ct) =>
+        group.MapPut("/{id:guid}", async (Guid id, [FromBody] UpdateCategoryRequest request, ICategoryService svc, CancellationToken ct) =>
         {
             var command = new UpdateCategoryCommand(id, request.Name, request.Type, request.Icon, request.Color, request.ParentCategoryId, request.Keywords);
-            var result = await mediator.Send(command, ct);
+            var result = await svc.UpdateAsync(command, ct);
             if (!result.Succeeded)
                 return Results.BadRequest(result.Errors);
             return Results.NoContent();
@@ -53,9 +47,9 @@ public static class CategoryEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status400BadRequest);
 
-        group.MapDelete("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        group.MapDelete("/{id:guid}", async (Guid id, ICategoryService svc, CancellationToken ct) =>
         {
-            var result = await mediator.Send(new DeleteCategoryCommand(id), ct);
+            var result = await svc.DeleteAsync(id, ct);
             if (!result.Succeeded)
                 return Results.BadRequest(result.Errors);
             return Results.NoContent();

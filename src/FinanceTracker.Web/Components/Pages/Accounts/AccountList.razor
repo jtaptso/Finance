@@ -1,9 +1,7 @@
 @page "/accounts"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Accounts.DTOs
-@using FinanceTracker.Application.Accounts.Queries.GetAllAccounts
-@using FinanceTracker.Application.Accounts.Commands.DeleteAccount
-@inject IMediator Mediator
+@inject IAccountService AccountService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 
@@ -80,7 +78,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _accounts = await Mediator.Send(new GetAllAccountsQuery());
+        _accounts = await AccountService.GetAllAsync();
         _loading = false;
     }
 
@@ -91,11 +89,11 @@
 
         if (confirmed)
         {
-            var result = await Mediator.Send(new DeleteAccountCommand(acc.Id));
+            var result = await AccountService.DeleteAsync(acc.Id);
             if (result.Succeeded)
             {
                 Snackbar.Add("Account deleted.", Severity.Success);
-                _accounts = await Mediator.Send(new GetAllAccountsQuery());
+                _accounts = await AccountService.GetAllAsync();
             }
             else
                 Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);

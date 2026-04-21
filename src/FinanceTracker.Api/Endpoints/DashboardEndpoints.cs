@@ -1,8 +1,5 @@
 using FinanceTracker.Application.Dashboard.DTOs;
-using FinanceTracker.Application.Dashboard.Queries.GetCashFlowTrend;
-using FinanceTracker.Application.Dashboard.Queries.GetCategoryBreakdown;
-using FinanceTracker.Application.Dashboard.Queries.GetMonthlyOverview;
-using MediatR;
+using FinanceTracker.Application.Services;
 
 namespace FinanceTracker.Api.Endpoints;
 
@@ -12,27 +9,18 @@ public static class DashboardEndpoints
     {
         var group = app.MapGroup("/api/dashboard").WithTags("Dashboard");
 
-        group.MapGet("/overview/{year:int}/{month:int}", async (int year, int month, IMediator mediator, CancellationToken ct) =>
-        {
-            var result = await mediator.Send(new GetMonthlyOverviewQuery(year, month), ct);
-            return Results.Ok(result);
-        })
+        group.MapGet("/overview/{year:int}/{month:int}", async (int year, int month, IDashboardService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetMonthlyOverviewAsync(year, month, ct)))
         .WithName("GetMonthlyOverview")
         .Produces<MonthlyOverviewDto>();
 
-        group.MapGet("/categories/{year:int}/{month:int}", async (int year, int month, IMediator mediator, CancellationToken ct) =>
-        {
-            var result = await mediator.Send(new GetCategoryBreakdownQuery(year, month), ct);
-            return Results.Ok(result);
-        })
+        group.MapGet("/categories/{year:int}/{month:int}", async (int year, int month, IDashboardService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetCategoryBreakdownAsync(year, month, ct)))
         .WithName("GetCategoryBreakdown")
         .Produces<IReadOnlyList<CategoryBreakdownItemDto>>();
 
-        group.MapGet("/cash-flow", async (IMediator mediator, CancellationToken ct, int months = 6) =>
-        {
-            var result = await mediator.Send(new GetCashFlowTrendQuery(months), ct);
-            return Results.Ok(result);
-        })
+        group.MapGet("/cash-flow", async (IDashboardService svc, CancellationToken ct, int months = 6) =>
+            Results.Ok(await svc.GetCashFlowTrendAsync(months, ct)))
         .WithName("GetCashFlowTrend")
         .Produces<CashFlowTrendDto>();
 

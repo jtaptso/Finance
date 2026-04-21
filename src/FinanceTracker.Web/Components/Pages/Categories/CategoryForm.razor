@@ -2,12 +2,8 @@
 @page "/categories/{Id:guid}/edit"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Categories.DTOs
-@using FinanceTracker.Application.Categories.Queries.GetAllCategories
-@using FinanceTracker.Application.Categories.Queries.GetCategoryById
-@using FinanceTracker.Application.Categories.Commands.CreateCategory
-@using FinanceTracker.Application.Categories.Commands.UpdateCategory
 @using FinanceTracker.Domain.Enums
-@inject IMediator Mediator
+@inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
@@ -128,11 +124,11 @@
             new(IsEdit ? "Edit" : "New", null, disabled: true)
         ];
 
-        _allCategories = await Mediator.Send(new GetAllCategoriesQuery());
+        _allCategories = await CategoryService.GetAllAsync();
 
         if (IsEdit)
         {
-            var cat = await Mediator.Send(new GetCategoryByIdQuery(Id!.Value));
+            var cat = await CategoryService.GetByIdAsync(Id!.Value);
             if (cat is not null)
             {
                 _model = new CategoryFormModel
@@ -180,7 +176,7 @@
 
         if (IsEdit)
         {
-            var result = await Mediator.Send(new UpdateCategoryCommand(
+            var result = await CategoryService.UpdateAsync(new UpdateCategoryCommand(
                 Id!.Value, _model.Name, _model.Type, _model.Icon, _model.Color,
                 _model.ParentCategoryId, _model.Keywords));
 
@@ -197,7 +193,7 @@
         }
         else
         {
-            await Mediator.Send(new CreateCategoryCommand(
+            await CategoryService.CreateAsync(new CreateCategoryCommand(
                 _model.Name, _model.Type, _model.Icon, _model.Color,
                 _model.ParentCategoryId, _model.Keywords));
 

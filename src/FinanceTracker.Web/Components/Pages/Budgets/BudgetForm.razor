@@ -1,14 +1,9 @@
 @page "/budgets/new"
 @page "/budgets/{Id:guid}/edit"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
-@using FinanceTracker.Application.Budgets.DTOs
-@using FinanceTracker.Application.Budgets.Queries.GetBudgetById
-@using FinanceTracker.Application.Budgets.Commands.CreateBudget
-@using FinanceTracker.Application.Budgets.Commands.UpdateBudget
-@using FinanceTracker.Application.Categories.DTOs
-@using FinanceTracker.Application.Categories.Queries.GetAllCategories
 @using FinanceTracker.Domain.Enums
-@inject IMediator Mediator
+@inject IBudgetService BudgetService
+@inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
@@ -96,11 +91,11 @@
             new(IsEdit ? "Edit" : "New", null, disabled: true)
         ];
 
-        _categories = await Mediator.Send(new GetAllCategoriesQuery());
+        _categories = await CategoryService.GetAllAsync();
 
         if (IsEdit)
         {
-            var budget = await Mediator.Send(new GetBudgetByIdQuery(Id!.Value));
+            var budget = await BudgetService.GetByIdAsync(Id!.Value);
             if (budget is not null)
             {
                 _model = new BudgetFormModel
@@ -143,7 +138,7 @@
 
         if (IsEdit)
         {
-            var result = await Mediator.Send(new UpdateBudgetCommand(
+            var result = await BudgetService.UpdateAsync(new UpdateBudgetCommand(
                 Id!.Value, _model.Amount, _model.Period, startDate, endDate));
 
             if (result.Succeeded)
@@ -159,7 +154,7 @@
         }
         else
         {
-            await Mediator.Send(new CreateBudgetCommand(
+            await BudgetService.CreateAsync(new CreateBudgetCommand(
                 _model.CategoryId, _model.Amount, _model.Period, startDate, endDate));
 
             Snackbar.Add("Budget created.", Severity.Success);

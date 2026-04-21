@@ -1,9 +1,7 @@
 @page "/categories"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using FinanceTracker.Application.Categories.DTOs
-@using FinanceTracker.Application.Categories.Queries.GetAllCategories
-@using FinanceTracker.Application.Categories.Commands.DeleteCategory
-@inject IMediator Mediator
+@inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -69,7 +67,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _categories = await Mediator.Send(new GetAllCategoriesQuery());
+        _categories = await CategoryService.GetAllAsync();
         _loading = false;
     }
 
@@ -79,11 +77,11 @@
 
         if (confirmed)
         {
-            var result = await Mediator.Send(new DeleteCategoryCommand(cat.Id));
+            var result = await CategoryService.DeleteAsync(cat.Id);
             if (result.Succeeded)
             {
                 Snackbar.Add("Category deleted.", Severity.Success);
-                _categories = await Mediator.Send(new GetAllCategoriesQuery());
+                _categories = await CategoryService.GetAllAsync();
             }
             else
             {
