@@ -64,6 +64,22 @@ public class TransactionRepository : ITransactionRepository
 
     public void Add(Transaction transaction) => _context.Transactions.Add(transaction);
 
+    public async Task<IReadOnlyList<Transaction>> GetByCategoryAndDateRangeAsync(Guid categoryId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
+    {
+        return await _context.Transactions
+            .Where(t => t.CategoryId == categoryId && t.Date >= from && t.Date <= to)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Transaction>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
+    {
+        return await _context.Transactions
+            .Include(t => t.Category)
+            .Where(t => t.Date >= from && t.Date <= to)
+            .OrderByDescending(t => t.Date)
+            .ToListAsync(cancellationToken);
+    }
+
     public void AddRange(IEnumerable<Transaction> transactions) => _context.Transactions.AddRange(transactions);
 
     public void Update(Transaction transaction) => _context.Transactions.Update(transaction);

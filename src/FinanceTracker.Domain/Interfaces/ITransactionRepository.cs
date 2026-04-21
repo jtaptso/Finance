@@ -9,6 +9,8 @@ public interface ITransactionRepository
     Task<IReadOnlyList<Transaction>> GetByMonthAsync(int year, int month, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Transaction>> GetByAccountIdAsync(Guid accountId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Transaction>> GetByImportHistoryIdAsync(Guid importHistoryId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Transaction>> GetByCategoryAndDateRangeAsync(Guid categoryId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Transaction>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(DateOnly date, decimal amount, string description, CancellationToken cancellationToken = default);
     void Add(Transaction transaction);
     void AddRange(IEnumerable<Transaction> transactions);

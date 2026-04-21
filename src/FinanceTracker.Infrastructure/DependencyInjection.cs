@@ -1,6 +1,8 @@
+using FinanceTracker.Application.Common.Interfaces;
 using FinanceTracker.Domain.Interfaces;
 using FinanceTracker.Infrastructure.Persistence;
 using FinanceTracker.Infrastructure.Persistence.Repositories;
+using FinanceTracker.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +32,8 @@ public static class DependencyInjection
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<IBudgetRepository, BudgetRepository>();
         services.AddScoped<IImportHistoryRepository, ImportHistoryRepository>();
+        services.AddScoped<ICategorizationService, CategorizationService>();
+        services.AddScoped<IExcelImportService, ExcelParsingService>();
 
         return services;
     }
