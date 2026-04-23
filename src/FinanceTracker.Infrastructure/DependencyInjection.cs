@@ -45,4 +45,18 @@ public static class DependencyInjection
 
         return services;
     }
+
+    /// <summary>
+    /// Applies pending EF migrations for relational databases, or ensures the schema is created for InMemory.
+    /// </summary>
+    public static void MigrateDatabase(this IServiceProvider serviceProvider)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var providerName = context.Database.ProviderName ?? string.Empty;
+        if (providerName.Contains("InMemory", StringComparison.OrdinalIgnoreCase))
+            context.Database.EnsureCreated();
+        else
+            context.Database.Migrate();
+    }
 }
