@@ -7,6 +7,7 @@ using FinanceTracker.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace FinanceTracker.Infrastructure;
 
@@ -53,8 +54,12 @@ public static class DependencyInjection
     {
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<ApplicationDbContext>>();
         var providerName = context.Database.ProviderName ?? string.Empty;
-        if (providerName.Contains("InMemory", StringComparison.OrdinalIgnoreCase))
+        var isInMemory = providerName.Contains("InMemory", StringComparison.OrdinalIgnoreCase);
+        var dbName = isInMemory ? "(in-memory)" : context.Database.GetDbConnection().Database;
+        logger.LogWarning("=== DATABASE PROVIDER: {Provider} | DATABASE: {Database} ===", providerName, dbName);
+        if (isInMemory)
             context.Database.EnsureCreated();
         else
             context.Database.Migrate();
