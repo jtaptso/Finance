@@ -193,7 +193,10 @@
 
         try
         {
-            using var stream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var browserStream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var stream = new MemoryStream();
+            await browserStream.CopyToAsync(stream, _cts.Token);
+            stream.Position = 0;
             _preview = await ImportService.ParseExcelAsync(stream, _selectedFile.Name, _selectedAccountId, _cts.Token);
 
             _previewRows = _preview.Rows

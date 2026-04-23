@@ -20,9 +20,7 @@
 
 <body>
 
-    <MudRootProviders>
-        <Routes />
-    </MudRootProviders>
+    <Routes @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
 
     <ReconnectModal />
 
