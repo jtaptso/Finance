@@ -55,7 +55,10 @@ public class ImportService : IImportService
     public async Task<Result<Guid>> ConfirmAsync(ConfirmImportCommand cmd, CancellationToken ct = default)
     {
         var provider = _dbContext.Database.ProviderName ?? "unknown";
-        var database = _dbContext.Database.GetDbConnection().Database;
+        var isRelational = _dbContext.Database.IsRelational();
+        var database = isRelational
+            ? _dbContext.Database.GetDbConnection().Database
+            : "(non-relational provider)";
 
         var importHistory = new ImportHistory
         {
