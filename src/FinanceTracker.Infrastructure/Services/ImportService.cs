@@ -8,6 +8,9 @@ using FinanceTracker.Application.Transactions.DTOs;
 using FinanceTracker.Domain.Entities;
 using FinanceTracker.Domain.Enums;
 using FinanceTracker.Domain.Interfaces;
+using FinanceTracker.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace FinanceTracker.Infrastructure.Services;
 
@@ -15,11 +18,19 @@ public class ImportService : IImportService
 {
     private readonly IUnitOfWork _uow;
     private readonly IExcelImportService _excelImportService;
+    private readonly ApplicationDbContext _dbContext;
+    private readonly ILogger<ImportService> _logger;
 
-    public ImportService(IUnitOfWork uow, IExcelImportService excelImportService)
+    public ImportService(
+        IUnitOfWork uow,
+        IExcelImportService excelImportService,
+        ApplicationDbContext dbContext,
+        ILogger<ImportService> logger)
     {
         _uow = uow;
         _excelImportService = excelImportService;
+        _dbContext = dbContext;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<ImportHistoryDto>> GetHistoryAsync(CancellationToken ct = default)
@@ -43,6 +54,9 @@ public class ImportService : IImportService
 
     public async Task<Result<Guid>> ConfirmAsync(ConfirmImportCommand cmd, CancellationToken ct = default)
     {
+        var provider = _dbContext.Database.ProviderName ?? "unknown";
+        var database = _dbContext.Database.GetDbConnection().Database;
+
         var importHistory = new ImportHistory
         {
             Id = Guid.NewGuid(),
@@ -75,7 +89,36 @@ public class ImportService : IImportService
 
         _uow.ImportHistories.Add(importHistory);
         _uow.Transactions.AddRange(transactions);
-        await _uow.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Import confirm started. File={FileName}, AccountId={AccountId}, SelectedRows={SelectedRows}, Provider={Provider}, Database={Database}",
+            cmd.FileName,
+            cmd.AccountId,
+            cmd.SelectedRows.Count,
+            provider,
+            database);
+
+        var savedChanges = await _uow.SaveChangesAsync(ct);
+        if (savedChanges <= 0)
+        {
+            _logger.LogWarning(
+                "Import confirm completed with no persisted rows. File={FileName}, AccountId={AccountId}, Provider={Provider}, Database={Database}",
+                cmd.FileName,
+                cmd.AccountId,
+                provider,
+                database);
+
+            return Result<Guid>.Failure($"Import did not persist any rows. Provider: {provider}, Database: {database}");
+        }
+
+        _logger.LogInformation(
+            "Import confirm saved changes. File={FileName}, AccountId={AccountId}, SelectedRows={SelectedRows}, SavedChanges={SavedChanges}, Provider={Provider}, Database={Database}",
+            cmd.FileName,
+            cmd.AccountId,
+            cmd.SelectedRows.Count,
+            savedChanges,
+            provider,
+            database);
 
         return Result<Guid>.Success(importHistory.Id);
     }
