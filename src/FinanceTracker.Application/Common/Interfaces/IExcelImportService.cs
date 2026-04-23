@@ -3,7 +3,7 @@ using FinanceTracker.Application.Import.DTOs;
 namespace FinanceTracker.Application.Common.Interfaces;
 
 /// <summary>
-/// Parses an Excel (.xlsx) byte stream into an import preview without persisting anything.
+/// Parses a statement file (.xlsx or .csv) into an import preview without persisting anything.
 /// </summary>
 public interface IExcelImportService
 {

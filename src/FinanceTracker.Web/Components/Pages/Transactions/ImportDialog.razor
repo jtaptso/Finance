@@ -13,7 +13,7 @@
     <TitleContent>
         <MudText Typo="Typo.h6">
             <MudIcon Icon="@Icons.Material.Filled.Upload" Class="mr-2" />
-            Import Excel Statement
+            Import Statement
         </MudText>
     </TitleContent>
     <DialogContent>
@@ -23,7 +23,7 @@
             <MudGrid>
                 <MudItem xs="12">
                     <MudText Typo="Typo.body1" Class="mb-3">
-                        Upload your bank statement Excel file (.xlsx). Columns expected: Date, Transaction Type, Amount (EUR), Description.
+                        Upload your bank statement file (.xlsx or .csv). Expected fields: Date, Transaction Type, Amount (EUR), Description/Purpose.
                     </MudText>
                 </MudItem>
                 <MudItem xs="12" md="6">
@@ -36,10 +36,10 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12">
-                    <InputFile id="fileInput" OnChange="HandleFileSelected" accept=".xlsx" style="display:none" />
+                    <InputFile id="fileInput" OnChange="HandleFileSelected" accept=".xlsx,.csv" style="display:none" />
                     <MudButton HtmlTag="label" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.AttachFile"
                                for="fileInput">
-                        @(_selectedFileName ?? "Choose .xlsx file")
+                        @(_selectedFileName ?? "Choose .xlsx or .csv file")
                     </MudButton>
                 </MudItem>
                 @if (_parseError is not null)
